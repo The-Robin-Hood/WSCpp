@@ -21,7 +21,7 @@ Bun.serve({
             console.log("Client disconnected");
         },
     },
-    port: 5000,
+    port: 4000,
 });
 
-console.log("Server started at http://localhost:5000");
+console.log("Server started at http://localhost:4000");
