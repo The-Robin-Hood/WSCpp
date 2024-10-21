@@ -48,25 +48,63 @@ disable_poco_modules(
 set(ENABLE_UTIL ON CACHE BOOL "" FORCE)
 set(ENABLE_NET ON CACHE BOOL "" FORCE)  
 
-add_subdirectory(thirdParty/poco)
+# Disable GLFW examples, tests, and docs
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_subdirectory(thirdParty/poco)
+add_subdirectory(thirdParty/glfw)
+
+add_executable(${PROJECT_NAME} 
+    src/main.cpp
+    src/gui.cpp
+    thirdparty/imgui/imgui.cpp
+    thirdparty/imgui/imgui_draw.cpp
+    thirdparty/imgui/imgui_demo.cpp
+    thirdparty/imgui/imgui_widgets.cpp
+    thirdparty/imgui/imgui_tables.cpp
+    thirdparty/imgui/imgui_impl_glfw.cpp
+    thirdparty/imgui/imgui_impl_opengl3.cpp
+)
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
     thirdParty/poco/include
+    thirdparty/imgui/include
+    thirdparty/glfw/include
+    src/
 )
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE
     thirdParty/poco/lib
+    thirdparty/glfw/src
 )
 
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-    Poco::Net Poco::Foundation
-)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "../dist"
-)
+if(WIN32)
+    message("Building for Windows")
+    target_link_libraries(${PROJECT_NAME} 
+        PRIVATE 
+        Poco::Foundation Poco::Net
+        glfw 
+        opengl32
+    )
+elseif(APPLE)
+    message("Building for macOS")
+    target_link_libraries(${PROJECT_NAME} 
+        PRIVATE 
+        Poco::Foundation Poco::Net
+        glfw 
+        "-framework OpenGL"
+    )
+else()
+    message("Building for Linux")
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(${PROJECT_NAME} 
+        PRIVATE 
+        Poco::Foundation Poco::Net
+        glfw 
+        OpenGL::GL
+    )
+endif()
