@@ -1,6 +1,7 @@
 #include "gui.h"
 #include <iostream>
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
@@ -43,14 +44,35 @@ void gui::Init() noexcept
     ImGui::NewFrame();
 
     ImGui::SetNextWindowSize({WIDTH, HEIGHT}, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos({0, 0}, ImGuiCond_FirstUseEver);          
+    ImGui::SetNextWindowPos({0, 0}, ImGuiCond_FirstUseEver);
 
     ImGui::Begin("WSC", &quit, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
-    if (ImGui::Button("Make HTTP Request"))
+    
+    
+    ImGui::Text("Host:");
+    ImGui::SameLine();
+    ImGui::InputTextWithHint("##Host","example.com", &hostInput);
+
+    ImGui::Text("Port:");
+    ImGui::SameLine();
+    ImGui::InputTextWithHint("##Port","By default 80", &portInput);
+
+
+    if (ImGui::Button("Connect"))
     {
-        // httpRequest();
-        std::cout << "HTTP Request" << std::endl;
+        // Print host and port to the console
+        std::cout << "Host: " << hostInput << ", Port: " << portInput << std::endl;
+
+        // Example of adding the connection info to the output text
+        outputText += "Connected to " + hostInput + " on port " + portInput + "\n";
     }
+
+    // Text container for output messages
+    ImGui::Text("Messages:");
+    ImGui::BeginChild("Messages", ImVec2(0, HEIGHT - 150), true); // Resizable child window
+    ImGui::TextWrapped("%s", outputText.c_str());                 // Display output text
+    ImGui::EndChild();
+
     ImGui::End();
 }
 

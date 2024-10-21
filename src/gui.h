@@ -1,6 +1,7 @@
 #pragma once
 
 #include <GLFW/glfw3.h>
+#include <string>
 
 namespace gui {
 
@@ -18,4 +19,9 @@ namespace gui {
     void Init() noexcept;
     void Render() noexcept;
     void DestroyImGui() noexcept;
+
+
+    inline std::string hostInput = "";
+    inline std::string portInput = "";
+    inline std::string outputText = ""; // Buffer for output text
 }
