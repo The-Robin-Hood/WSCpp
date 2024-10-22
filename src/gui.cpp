@@ -34,7 +34,13 @@ void gui::CreateImGui() noexcept
     io.IniFilename = nullptr;
     ImGui::StyleColorsClassic();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
+
+    # if defined(__APPLE__)
+    ImGui_ImplOpenGL3_Init("#version 120");
+    # else
     ImGui_ImplOpenGL3_Init("#version 130");
+    # endif
+    
 }
 
 void gui::Init() noexcept
