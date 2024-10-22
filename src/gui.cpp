@@ -54,24 +54,25 @@ void gui::Init() noexcept
 
     ImGui::Begin("WSC", &quit, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
     
-    
+    ImGui::Spacing();
     ImGui::Text("Host:");
-    ImGui::SameLine();
     ImGui::InputTextWithHint("##Host","example.com", &hostInput);
-
-    ImGui::Text("Port:");
     ImGui::SameLine();
-    ImGui::InputTextWithHint("##Port","By default 80", &portInput);
-
 
     if (ImGui::Button("Connect"))
     {
         // Print host and port to the console
-        std::cout << "Host: " << hostInput << ", Port: " << portInput << std::endl;
+        std::cout << "Host: " << hostInput << std::endl;
 
         // Example of adding the connection info to the output text
-        outputText += "Connected to " + hostInput + " on port " + portInput + "\n";
+        outputText += "Connected to " + hostInput + "\n";
     }
+
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+    ImGui::Text("Status : ");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     // Text container for output messages
     ImGui::Text("Messages:");

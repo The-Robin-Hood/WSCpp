@@ -26,6 +26,5 @@ namespace gui {
 
 
     inline std::string hostInput = "";
-    inline std::string portInput = "";
     inline std::string outputText = ""; // Buffer for output text
 }
