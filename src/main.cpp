@@ -1,14 +1,15 @@
-
 #include <iostream>
 #include "gui.h"
 
-int main(int argc, char** argv) {
-    if (!glfwInit()) {
+int main(int argc, char **argv)
+{
+    if (!glfwInit())
+    {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return -1;
     }
 
-    gui::CreateWindow("WSC++");
+    gui::CreateGlfWindow("WSC++");
     gui::CreateImGui();
 
     while (!glfwWindowShouldClose(gui::window))
@@ -20,7 +21,7 @@ int main(int argc, char** argv) {
     }
 
     gui::DestroyImGui();
-    gui::DestroyWindow();
+    gui::DestroyGlfWindow();
 
     return 0;
 }

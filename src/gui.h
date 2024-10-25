@@ -6,6 +6,9 @@
 
 #include <GLFW/glfw3.h>
 #include <string>
+#include <ws.h>
+
+class WSC;
 
 namespace gui {
 
@@ -16,8 +19,8 @@ namespace gui {
 
     inline GLFWwindow *window = nullptr;
 
-    void CreateWindow(const char *title) noexcept;
-    void DestroyWindow() noexcept;
+    void CreateGlfWindow(const char *title) noexcept;
+    void DestroyGlfWindow() noexcept;
 
     void CreateImGui() noexcept;
     void Init() noexcept;
@@ -25,6 +28,7 @@ namespace gui {
     void DestroyImGui() noexcept;
 
 
-    inline std::string hostInput = "";
-    inline std::string outputText = ""; // Buffer for output text
-}
+    inline std::string hostInput = "wss://localhost:4000";
+    inline std::string messageInput = "";
+    extern WSC* ws;
+};
