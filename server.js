@@ -13,6 +13,10 @@ Bun.serve({
         },
 
         message(ws, message) {
+            if(message === "close") {
+                ws.close();
+                return;
+            }
             console.log(`Received: ${message}`);
             ws.send(`Echo: ${message}`);
         },
