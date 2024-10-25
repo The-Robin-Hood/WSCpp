@@ -8,12 +8,41 @@
 #include "imgui_custom.h"
 #include "imgui_freetype.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "ws.h"
 
 WSC *gui::ws = nullptr;
 
+
+void SetWindowIcon(GLFWwindow* window, const char* iconPath)
+{
+    // Load the icon image
+    int width, height, channels;
+    unsigned char* image = stbi_load(iconPath, &width, &height, &channels, 4);
+
+    if (image)
+    {
+        // Create GLFW image structure
+        GLFWimage icons[1];
+        icons[0].width = width;
+        icons[0].height = height;
+        icons[0].pixels = image;
+
+        glfwSetWindowIcon(window, 1, icons);
+        stbi_image_free(image);
+        std::cout << "Icon loaded and set successfully!" << std::endl;
+    }
+    else
+    {
+        std::cerr << "Failed to load icon image: " << iconPath << std::endl;
+    }
+}
+
 void gui::CreateGlfWindow(const char *title) noexcept
 {
+    std::string path = std::filesystem::current_path().string();
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window = glfwCreateWindow(WIDTH, HEIGHT, title, nullptr, nullptr);
     if (!window)
@@ -22,6 +51,8 @@ void gui::CreateGlfWindow(const char *title) noexcept
         std::cerr << "Failed to create window" << std::endl;
         exit(EXIT_FAILURE);
     }
+    std::string imgPath = path.append("/assets/logo.png");
+    SetWindowIcon(window,imgPath.c_str());
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 }
@@ -56,7 +87,6 @@ void gui::CreateImGui() noexcept
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
     std::string fontPath = path.append("/assets/NotoEmoji.ttf");
-    std::cout << "Font path: " << fontPath << std::endl;
     io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges);
     io.Fonts->Build();
 }

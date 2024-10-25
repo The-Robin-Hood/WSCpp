@@ -79,6 +79,7 @@ target_include_directories(${PROJECT_NAME}
     thirdparty/imgui/include
     thirdparty/glfw/include
     thirdparty/freetype/include
+    thirdparty/others/include
     src/
 )
 
