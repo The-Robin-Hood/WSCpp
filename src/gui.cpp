@@ -4,6 +4,9 @@
 #include "imgui_stdlib.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_custom.h"
+
+#include "ws.h"
 
 void gui::CreateWindow(const char *title) noexcept
 {
@@ -40,7 +43,7 @@ void gui::CreateImGui() noexcept
     # else
     ImGui_ImplOpenGL3_Init("#version 130");
     # endif
-    
+
 }
 
 void gui::Init() noexcept
@@ -61,17 +64,31 @@ void gui::Init() noexcept
 
     if (ImGui::Button("Connect"))
     {
-        // Print host and port to the console
-        std::cout << "Host: " << hostInput << std::endl;
 
-        // Example of adding the connection info to the output text
-        outputText += "Connected to " + hostInput + "\n";
+        ws::Init();
+        if (ws::Connect(hostInput))
+        {
+            outputText += "Connected to " + hostInput + "\n";
+        }
+        else
+        {
+            outputText += "Failed to connect to " + hostInput + "\n";
+        }
+        
     }
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
     ImGui::Text("Status : ");
     ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+    if(ws::currentState == ws::ws_state::UNINITIALIZED)
+        ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5), "Uninitialized");
+    else if(ws::currentState == ws::ws_state::CONNECTING)
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
+    else if(ws::currentState == ws::ws_state::DISCONNECTED)
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
+    else if(ws::currentState == ws::ws_state::CONNECTED)
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+    
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     // Text container for output messages

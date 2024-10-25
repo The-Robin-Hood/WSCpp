@@ -59,6 +59,7 @@ add_subdirectory(thirdParty/glfw)
 add_executable(${PROJECT_NAME} 
     src/main.cpp
     src/gui.cpp
+    src/ws.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_stdlib.cpp
     thirdparty/imgui/imgui_draw.cpp
@@ -67,6 +68,7 @@ add_executable(${PROJECT_NAME}
     thirdparty/imgui/imgui_tables.cpp
     thirdparty/imgui/imgui_impl_glfw.cpp
     thirdparty/imgui/imgui_impl_opengl3.cpp
+    thirdparty/imgui/imgui_custom.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -79,7 +81,6 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE
-    thirdParty/poco/lib
     thirdparty/glfw/src
 )
 
