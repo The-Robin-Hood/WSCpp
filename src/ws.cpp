@@ -1,253 +1,251 @@
 #include "ws.h"
-#include <string>
-#include <memory>
-#include <iostream>
 
-// void listenForMessages(WebSocket *ws)
-// {
-//     char receiveBuff[256000];
-//     int flags = 0;
-
-//     try
-//     {
-//         while (running)
-//         {
-//             int rlen = ws->receiveFrame(receiveBuff, 256000, flags);
-//             if (rlen <= 0)
-//             {
-//                 std::cout << "Connection closed by server." << std::endl;
-//                 running = false; // Signal main thread to stop
-//                 break;
-//             }
-//             receiveBuff[rlen] = '\0'; // Null-terminate received message
-//             std::cout << "Received: " << receiveBuff << std::endl;
-//         }
-//     }
-//     catch (std::exception &e)
-//     {
-//         std::cout << "Exception in listener thread: " << e.what() << std::endl;
-//         running = false; // Signal main thread to stop
-//     }
-// }
-
-// std::string hostExtraction(std::string uri)
-// {
-//     std::string host = uri;
-//     if (host.find("://") != std::string::npos)
-//     {
-//         host = host.substr(host.find("://") + 3);
-//     }
-//     if (host.find(":") != std::string::npos)
-//     {
-//         host = host.substr(0, host.find(":"));
-//     }
-//     if (host.find("/") != std::string::npos)
-//     {
-//         host = host.substr(0, host.find("/"));
-//     }
-//     return host;
-// }
-
-// int portExtraction(std::string uri)
-// {
-//     int port = 80;
-//     if (uri.find("://") != std::string::npos)
-//     {
-//         uri = uri.substr(uri.find("://") + 3);
-//     }
-//     if (uri.find(":") != std::string::npos)
-//     {
-//         port = std::stoi(uri.substr(uri.find(":") + 1));
-//     }
-//     return port;
-// }
-
-void ws::Init() noexcept
+WSC::WSC(const std::string &url)
 {
+    _currentState = WebsocketState::UNINITIALIZED;
+    _messages = new std::vector<Message>();
+    _running = true;
+
     try
     {
-        ws::currentState = ws::ws_state::UNINITIALIZED;
-        session.reset();
-        websocket.reset();
+        parseURI(url);
     }
     catch (const std::exception &e)
     {
         std::cerr << "Init error: " << e.what() << std::endl;
     }
-}
-
-bool ws::Connect(const std::string &url) noexcept
-{
     try
     {
-        if (currentState != ws::ws_state::UNINITIALIZED)
-        {
-            Close();
-        }
-
-        currentState = ws_state::CONNECTING;
-
-        std::string scheme, host, path;
-        int port;
-        bool isSecure = false;
-
-        try
-        {
-            // Remove ws:// or wss:// and add http:// or https:// for URI parsing
-            std::string httpUrl = url;
-            if (url.substr(0, 5) == "ws://")
-            {
-                httpUrl = "http://" + url.substr(5);
-                isSecure = false;
-            }
-            else if (url.substr(0, 6) == "wss://")
-            {
-                httpUrl = "https://" + url.substr(6);
-                isSecure = true;
-            }
-            else
-            {
-                // Invalid URL format
-                throw std::runtime_error("Invalid WebSocket URL scheme. Must start with ws:// or wss://");
-            }
-
-            Poco::URI uri(httpUrl);
-            scheme = uri.getScheme();
-            host = uri.getHost();
-            path = uri.getPathAndQuery();
-            port = uri.getPort();
-
-            // Use default ports if not specified
-            if (port == -1)
-            {
-                port = isSecure ? 443 : 80;
-            }
-
-            if (path.empty())
-            {
-                path = "/";
-            }
-        }
-        catch (const Poco::Exception &e)
-        {
-            throw std::runtime_error("Failed to parse URL: " + std::string(e.what()));
-        }
-
-        session = std::make_unique<HTTPClientSession>(host, port);
-
-        HTTPRequest request(HTTPRequest::HTTP_GET, path,
-                                       HTTPMessage::HTTP_1_1);
+        _currentState = WebsocketState::CONNECTING;
+        _session = new HTTPClientSession(_host, _port);
+        _session->setTimeout(Poco::Timespan(0));
+        HTTPRequest request(HTTPRequest::HTTP_GET, _path, HTTPMessage::HTTP_1_1);
         request.set("User-Agent", "WSC++ v0.1");
         request.set("Upgrade", "websocket");
         request.set("Connection", "Upgrade");
-        // request.set("Sec-WebSocket-Version", "13");
-        // request.set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
-
         HTTPResponse response;
-
-        websocket = std::make_unique<WebSocket>(*session, request, response);
+        _websocket = new WebSocket(*_session, request, response);
 
         if (response.getStatus() == HTTPResponse::HTTP_SWITCHING_PROTOCOLS)
         {
-            ws::currentState = ws::ws_state::CONNECTED;
-            return true;
+            _currentState = WebsocketState::CONNECTED;
+            std::cout << "Connected to WebSocket server" << std::endl;
+            _receiveThread = std::thread(&WSC::_receiveLoop, this);
         }
-
-        ws::currentState = ws::ws_state::DISCONNECTED;
-        return false;
+        else
+        {
+            _currentState = WebsocketState::DISCONNECTED;
+            throw std::runtime_error("Failed to connect to WebSocket server");
+        }
     }
     catch (const std::exception &e)
     {
         std::cerr << "Connection error: " << e.what() << std::endl;
-        ws::currentState = ws::ws_state::DISCONNECTED;
-        return false;
+        _currentState = WebsocketState::DISCONNECTED;
+        throw e;
     }
 }
 
-bool ws::Send(const std::string &message) noexcept
+WSC::~WSC()
+{
+    close();
+}
+
+void WSC::parseURI(const std::string &url)
+{
+    std::string httpUrl = url;
+    try
+    {
+        // Remove ws:// or wss:// and add http:// or https:// for URI parsing
+        if (url.substr(0, 5) == "ws://")
+        {
+            httpUrl = "http://" + url.substr(5);
+            _isSecure = false;
+        }
+        else if (url.substr(0, 6) == "wss://")
+        {
+            httpUrl = "https://" + url.substr(6);
+            _isSecure = true;
+        }
+        else
+        {
+            // Invalid URL format
+            throw std::runtime_error("Invalid WebSocket URL scheme. Must start with ws:// or wss://");
+        }
+
+        Poco::URI uri(httpUrl);
+        _scheme = uri.getScheme();
+        _host = uri.getHost();
+        _path = uri.getPathAndQuery();
+        _port = uri.getPort();
+
+        // Use default ports if not specified
+        if (_port == -1)
+        {
+            _port = _isSecure ? 443 : 80;
+            std::cout << "Using default port: " << _port << std::endl;
+        }
+
+        if (_path.empty())
+        {
+            _path = "/";
+        }
+    }
+    catch (const Poco::Exception &e)
+    {
+        throw std::runtime_error("Failed to parse URL: " + std::string(e.what()));
+    }
+}
+
+bool WSC::sendMsg(const std::string &message)
 {
     try
     {
-        if (ws::currentState != ws::ws_state::CONNECTED || !ws::websocket)
+        if (_currentState != WebsocketState::CONNECTED || !_websocket)
         {
             return false;
         }
 
         int flags = WebSocket::FRAME_TEXT;
-        int sent = ws::websocket->sendFrame(message.data(), message.size(), flags);
+        int sent = _websocket->sendFrame(message.data(), message.size(), flags);
+
+        {
+            std::lock_guard<std::mutex> lock(_messagesMutex);
+            _messages->push_back(Message(Message::MessageType::SENT, message));
+        }
 
         return sent == message.size();
     }
     catch (const std::exception &e)
     {
         std::cerr << "Send error: " << e.what() << std::endl;
-        ws::currentState = ws::ws_state::DISCONNECTED;
+        _currentState = WebsocketState::DISCONNECTED;
         return false;
     }
 }
 
-bool ws::Receive() noexcept
+void WSC::_receiveLoop()
 {
-    try
+    int noDataCounter = 0;        
+    const int maxNoDataCount = 10; 
+
+    while (_running)
     {
-        if (ws::currentState != ws::ws_state::CONNECTED || !ws::websocket)
+        try
         {
-            return false;
+            std::vector<char> buffer(1024);
+            int flags;
+
+            int n = _websocket->receiveFrame(buffer.data(), buffer.size(), flags);
+            std::cout << "Flags: " << flags << std::endl;
+            std::cout << "Received " << n << " bytes" << std::endl;
+
+            // If no data is received, increment counter and check threshold
+            if (n <= 0)
+            {
+                noDataCounter++;
+                if (noDataCounter >= maxNoDataCount)
+                {
+                    std::cerr << "No data received for " << maxNoDataCount << " consecutive reads. Disconnecting." << std::endl;
+                    _currentState = WebsocketState::DISCONNECTED;
+                    _running = false;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Avoid tight loop
+                continue;
+            }
+
+            noDataCounter = 0; 
+
+            // Check if it's a Close frame
+            if (flags & WebSocket::FRAME_OP_CLOSE)
+            {
+                std::cerr << "Received Close frame from server. Disconnecting." << std::endl;
+                _currentState = WebsocketState::DISCONNECTED;
+                _running = false;
+                break;
+            }
+
+            // Handle Text or Binary frames
+            if (flags & WebSocket::FRAME_OP_TEXT || flags & WebSocket::FRAME_OP_BINARY)
+            {
+                // Check if buffer needs resizing
+                if (n >= buffer.size())
+                {
+                    buffer.resize(n);                                                  // Resize buffer to the actual size received
+                    n = _websocket->receiveFrame(buffer.data(), buffer.size(), flags); // Read again if resized
+                }
+
+                // Store the received message
+                std::string message(buffer.data(), n);
+                {
+                    std::lock_guard<std::mutex> lock(_messagesMutex);
+                    _messages->push_back(Message(Message::MessageType::RECEIVED, message));
+                }
+            }
+        }
+        catch (Poco::Exception &exc)
+        {
+            std::cerr << "Error receiving message: " << exc.displayText() << std::endl;
+            _currentState = WebsocketState::DISCONNECTED;
+            _running = false;
+            break;
         }
 
-        const int BUFFER_SIZE = 1024;
-        char buffer[BUFFER_SIZE];
-        int flags = 0;
-
-        int received = ws::websocket->receiveFrame(buffer, sizeof(buffer), flags);
-
-        if (received > 0)
-        {
-            // Handle received data based on flags
-            if (flags & WebSocket::FRAME_TEXT)
-            {
-                // Handle text frame
-                std::string message(buffer, received);
-                std::cout << "Received text: " << message << std::endl;
-            }
-            else if (flags & WebSocket::FRAME_BINARY)
-            {
-                // Handle binary frame
-                std::cout << "Received binary data of size: " << received << std::endl;
-            }
-            return true;
-        }
-
-        return false;
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Receive error: " << e.what() << std::endl;
-        ws::currentState = ws::ws_state::DISCONNECTED;
-        return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
-void ws::Close() noexcept
+void WSC::close()
 {
-    try
+    if (_websocket)
     {
-        if (ws::websocket)
+        try
         {
-            ws::websocket->shutdown();
-            ws::websocket.reset();
+            _websocket->shutdown(); // Forcefully shutdown connection
         }
-
-        if (ws::session)
+        catch (Poco::Exception &exc)
         {
-            ws::session.reset();
+            std::cerr << "Error shutting down WebSocket: " << exc.displayText() << std::endl;
         }
-
-        ws::currentState = ws::ws_state::DISCONNECTED;
     }
-    catch (const std::exception &e)
+
+    if (_currentState == WebsocketState::CONNECTED)
     {
-        std::cerr << "Close error: " << e.what() << std::endl;
-        ws::currentState = ws::ws_state::DISCONNECTED;
+        _currentState = WebsocketState::DISCONNECTED;
+        _running = false;
+        if (_receiveThread.joinable())
+        {
+            _receiveThread.join();
+        }
     }
+    if (_websocket)
+    {
+        try
+        {
+            _websocket->close();
+        }
+        catch (Poco::Exception &exc)
+        {
+            std::cerr << "Error closing WebSocket: " << exc.displayText() << std::endl;
+        }
+        delete _websocket;
+        _websocket = nullptr;
+    }
+    if (_session)
+    {
+        delete _session;
+        _session = nullptr;
+    }
+}
+
+WebsocketState WSC::getState() const
+{
+    return _currentState;
+}
+
+std::vector<Message> WSC::getMessages()
+{
+    std::lock_guard<std::mutex> lock(_messagesMutex);
+    return *_messages;
 }
