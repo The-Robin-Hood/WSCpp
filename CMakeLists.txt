@@ -55,6 +55,7 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(thirdParty/poco)
 add_subdirectory(thirdParty/glfw)
+add_subdirectory(thirdParty/freetype)
 
 add_executable(${PROJECT_NAME} 
     src/main.cpp
@@ -68,6 +69,7 @@ add_executable(${PROJECT_NAME}
     thirdparty/imgui/imgui_tables.cpp
     thirdparty/imgui/imgui_impl_glfw.cpp
     thirdparty/imgui/imgui_impl_opengl3.cpp
+    thirdparty/imgui/imgui_freetype.cpp
     thirdparty/imgui/imgui_custom.cpp
 )
 
@@ -76,12 +78,14 @@ target_include_directories(${PROJECT_NAME}
     thirdParty/poco/include
     thirdparty/imgui/include
     thirdparty/glfw/include
+    thirdparty/freetype/include
     src/
 )
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE
     thirdparty/glfw/src
+    thirdparty/freetype/src
 )
 
 if(WIN32)
@@ -91,6 +95,7 @@ if(WIN32)
         Poco::Foundation Poco::Net
         glfw 
         opengl32
+        freetype
     )
 elseif(APPLE)
     message("Building for macOS")
@@ -98,6 +103,7 @@ elseif(APPLE)
         PRIVATE 
         Poco::Foundation Poco::Net
         glfw 
+        freetype
         "-framework OpenGL"
     )
 else()
@@ -107,6 +113,7 @@ else()
         PRIVATE 
         Poco::Foundation Poco::Net
         glfw 
+        freetype
         OpenGL::GL
     )
 endif()
