@@ -50,7 +50,7 @@ void gui::CreateImGui() noexcept
 #endif
 
     io.Fonts->AddFontDefault();
-    static ImWchar ranges[] = {0x1, 0x1FFFF, 0};
+    static ImWchar ranges[] = {0x1, 0xFFFF, 0};
     static ImFontConfig cfg;
     cfg.OversampleH = cfg.OversampleV = 1;
     cfg.MergeMode = true;
