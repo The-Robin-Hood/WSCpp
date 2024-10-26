@@ -18,7 +18,7 @@ WSC::WSC(const std::string &url)
     {
         _currentState = WebsocketState::CONNECTING;
         _session = new HTTPClientSession(_host, _port);
-        _session->setTimeout(Poco::Timespan(0));
+        _session->setTimeout(Poco::Timespan(5, 0));
         HTTPRequest request(HTTPRequest::HTTP_GET, _path, HTTPMessage::HTTP_1_1);
         request.set("User-Agent", "WSC++ v0.1");
         request.set("Upgrade", "websocket");
@@ -126,8 +126,8 @@ bool WSC::sendMsg(const std::string &message)
 
 void WSC::_receiveLoop()
 {
-    int noDataCounter = 0;        
-    const int maxNoDataCount = 10; 
+    int noDataCounter = 0;
+    const int maxNoDataCount = 10;
 
     while (_running)
     {
@@ -155,7 +155,7 @@ void WSC::_receiveLoop()
                 continue;
             }
 
-            noDataCounter = 0; 
+            noDataCounter = 0;
 
             // Check if it's a Close frame
             if (flags & WebSocket::FRAME_OP_CLOSE)
@@ -186,7 +186,12 @@ void WSC::_receiveLoop()
         }
         catch (Poco::Exception &exc)
         {
-            std::cerr << "Error receiving message: " << exc.displayText() << std::endl;
+            if (exc.code() == POCO_EAGAIN)
+            {
+                std::cerr << "Timeout receiving message: " << exc.displayText() << std::endl;
+                continue;
+            }
+            std::cerr << "Error receiving message: " << exc.displayText() << exc.code() << exc.name() << std::endl;
             _currentState = WebsocketState::DISCONNECTED;
             _running = false;
             break;
