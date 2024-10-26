@@ -12,8 +12,8 @@ class WSC;
 
 namespace gui {
 
-    constexpr int WIDTH = 800;
-    constexpr int HEIGHT = 600;
+    constexpr int WIDTH = 700;
+    constexpr int HEIGHT = 500;
 
     inline bool quit = true;
 
