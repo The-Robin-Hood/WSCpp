@@ -12,6 +12,8 @@
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/URI.h"
 
+#define SERVER_CRASH_DETECTION_THRESHOLD 10
+
 using Poco::Net::HTTPClientSession;
 using Poco::Net::HTTPMessage;
 using Poco::Net::HTTPRequest;

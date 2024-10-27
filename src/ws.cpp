@@ -23,6 +23,7 @@ WSC::WSC(const std::string &url)
         request.set("User-Agent", "WSC++ v0.1");
         request.set("Upgrade", "websocket");
         request.set("Connection", "Upgrade");
+        request.set("Sec-WebSocket-Version", "13");
         HTTPResponse response;
         _websocket = new WebSocket(*_session, request, response);
 
@@ -101,20 +102,44 @@ bool WSC::sendMsg(const std::string &message)
 {
     try
     {
+        int total = 0;
         if (_currentState != WebsocketState::CONNECTED || !_websocket)
         {
             return false;
         }
 
-        int flags = WebSocket::FRAME_TEXT;
-        int sent = _websocket->sendFrame(message.data(), message.size(), flags);
+        if (message.size() > 125)
+        {
+            std::string mutableMessage = message;
+            bool first_frame = true;
+            while (!mutableMessage.empty())
+            {
+                int flags = first_frame ? WebSocket::FRAME_OP_TEXT : WebSocket::FRAME_OP_CONT;
+                int chunk_size = std::min(static_cast<int>(mutableMessage.size()), 125);
+                if (chunk_size == mutableMessage.size())
+                {
+                    flags |= WebSocket::FRAME_FLAG_FIN;
+                }
+                int sent = _websocket->sendFrame(mutableMessage.data(), chunk_size, flags);
+                mutableMessage = mutableMessage.substr(chunk_size);
+                first_frame = false;
+                total += sent;
+                std::cout << "Sent " << sent << " bytes" << std::endl;
+            }
+        }
+        else
+        {
+            int flags = WebSocket::FRAME_TEXT;
+            int sent = _websocket->sendFrame(message.data(), message.size(), flags);
+            total += sent;
+        }
 
         {
             std::lock_guard<std::mutex> lock(_messagesMutex);
             _messages->push_back(Message(Message::MessageType::SENT, message));
         }
 
-        return sent == message.size();
+        return total == message.size();
     }
     catch (const std::exception &e)
     {
@@ -126,69 +151,89 @@ bool WSC::sendMsg(const std::string &message)
 
 void WSC::_receiveLoop()
 {
-    int noDataCounter = 0;
-    const int maxNoDataCount = 10;
+    int contFrameCount = 0;
 
     while (_running)
     {
         try
         {
-            std::vector<char> buffer(1024);
+            Poco::Buffer<char> buffer(0);
             int flags;
-
-            int n = _websocket->receiveFrame(buffer.data(), buffer.size(), flags);
-            std::cout << "Flags: " << flags << std::endl;
+            int n = _websocket->receiveFrame(buffer, flags);
             std::cout << "Received " << n << " bytes" << std::endl;
 
-            // If no data is received, increment counter and check threshold
-            if (n <= 0)
+            int opcode = flags & WebSocket::FRAME_OP_BITMASK;
+            switch (opcode)
             {
-                noDataCounter++;
-                if (noDataCounter >= maxNoDataCount)
+            case WebSocket::FRAME_OP_CONT:
+            {
+                std::cout << "FRAME_OP_CONT" << std::endl;
+                if (n <= 0)
                 {
-                    std::cerr << "No data received for " << maxNoDataCount << " consecutive reads. Disconnecting." << std::endl;
-                    _currentState = WebsocketState::DISCONNECTED;
-                    _running = false;
-                    break;
+                    contFrameCount++;
+                    if (contFrameCount >= SERVER_CRASH_DETECTION_THRESHOLD)
+                    {
+                        std::cerr << "Server is not responding. Disconnecting." << std::endl;
+                        _currentState = WebsocketState::DISCONNECTED;
+                        _running = false;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Avoid tight loop
+                    continue;
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Avoid tight loop
-                continue;
+                contFrameCount = 0;
+                break;
+            }
+            case WebSocket::FRAME_OP_TEXT:
+            {
+                std::cout << "FRAME_OP_TEXT" << std::endl;
+                std::string message(buffer.begin(), buffer.begin() + n);
+                std::lock_guard<std::mutex> lock(_messagesMutex);
+                _messages->push_back(Message(Message::MessageType::RECEIVED, message));
+                break;
             }
 
-            noDataCounter = 0;
-
-            // Check if it's a Close frame
-            if (flags & WebSocket::FRAME_OP_CLOSE)
+            case WebSocket::FRAME_OP_BINARY:
             {
+                std::cout << "FRAME_OP_BINARY" << std::endl;
+                std::string message = "Binary data received (" + std::to_string(n) + " bytes)";
+                std::lock_guard<std::mutex> lock(_messagesMutex);
+                _messages->push_back(Message(Message::MessageType::RECEIVED, message));
+                break;
+            }
+
+            case WebSocket::FRAME_OP_CLOSE:
+            {
+                std::cout << "FRAME_OP_CLOSE" << std::endl;
                 std::cerr << "Received Close frame from server. Disconnecting." << std::endl;
                 _currentState = WebsocketState::DISCONNECTED;
                 _running = false;
                 break;
             }
 
-            // Handle Text or Binary frames
-            if (flags & WebSocket::FRAME_OP_TEXT || flags & WebSocket::FRAME_OP_BINARY)
+            case WebSocket::FRAME_OP_PING:
             {
-                // Check if buffer needs resizing
-                if (n >= buffer.size())
-                {
-                    buffer.resize(n);                                                  // Resize buffer to the actual size received
-                    n = _websocket->receiveFrame(buffer.data(), buffer.size(), flags); // Read again if resized
-                }
+                std::cout << "FRAME_OP_PING" << std::endl;
+                std::cout << "Ping received" << std::endl;
+                std::cout << std::string(buffer.begin(), buffer.begin() + n) << " " << n << std::endl;
+                _websocket->sendFrame(buffer.begin(), n, WebSocket::FRAME_OP_PONG | WebSocket::FRAME_FLAG_FIN);
+                std::cout << "Pong sent" << std::endl;
+                break;
+            }
 
-                // Store the received message
-                std::string message(buffer.data(), n);
-                {
-                    std::lock_guard<std::mutex> lock(_messagesMutex);
-                    _messages->push_back(Message(Message::MessageType::RECEIVED, message));
-                }
+            case WebSocket::FRAME_OP_PONG:
+                std::cout << "FRAME_OP_PONG" << std::endl;
+                break;
+            default:
+                std::cout << "Unknown opcode" << std::endl;
+                break;
             }
         }
         catch (Poco::Exception &exc)
         {
-            if (exc.code() == POCO_EAGAIN)
+            if (exc.code() == POCO_EAGAIN || exc.code() == POCO_ETIMEDOUT)
             {
-                std::cerr << "Timeout receiving message: " << exc.displayText() << std::endl;
+                // std::cerr << "Timeout receiving message: " << exc.displayText() << std::endl;
                 continue;
             }
             std::cerr << "Error receiving message: " << exc.displayText() << exc.code() << exc.name() << std::endl;
@@ -196,8 +241,6 @@ void WSC::_receiveLoop()
             _running = false;
             break;
         }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
