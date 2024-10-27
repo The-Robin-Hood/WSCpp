@@ -169,6 +169,7 @@ void gui::Init() noexcept
             ImGui::PopID();
             free(buffer);
         }
+        ImGui::SetScrollHereY(1.0f);
     }
     ImGui::EndChild();
 
