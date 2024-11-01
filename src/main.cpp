@@ -1,27 +1,18 @@
-#include <iostream>
 #include "gui.h"
 
-int main(int argc, char **argv)
-{
-    if (!glfwInit())
-    {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+int main(int argc, char **argv) {
+    GUI &gui = GUI::getInstance();
+    if (!gui.init()) {
         return -1;
     }
 
-    gui::CreateGlfWindow("WSC++");
-    gui::CreateImGui();
-
-    while (!glfwWindowShouldClose(gui::window))
-    {
-        gui::Init();
-        gui::Render();
-        glfwSwapBuffers(gui::window);
+    while (!gui.shouldClose()) {
         glfwPollEvents();
+        gui.update();
+        gui.render();
+        glfwSwapBuffers(gui.getWindow());
     }
 
-    gui::DestroyImGui();
-    gui::DestroyGlfWindow();
-
+    gui.closeGUI();
     return 0;
 }

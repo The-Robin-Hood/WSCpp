@@ -1,34 +1,111 @@
 #pragma once
-
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #endif
 
 #include <GLFW/glfw3.h>
-#include <string>
 #include <ws.h>
+
+#include <filesystem>
+#include <memory>
+#include <string>
 
 class WSC;
 
-namespace gui {
+class GUI {
+   public:
+    struct Config {
+        int width = 700;
+        int height = 500;
+        std::string title = "WSC++";
+        std::string defaultHostHint = "wss://192.168.0.175:8000";
+        bool vsync = true;
+        bool resizable = true;
+        std::string assetsPath = std::filesystem::current_path().string().append("/assets/");
+        std::string logoPath = assetsPath + "logo.png";
+        std::vector<std::string> fonts = {"NotoEmoji.ttf"};
+    };
 
-    constexpr int WIDTH = 700;
-    constexpr int HEIGHT = 500;
+    // Singleton
+    static GUI &getInstance() {
+        static GUI instance;
+        return instance;
+    }
 
-    inline bool quit = true;
+    // Builder pattern for configuration
+    class Builder {
+       public:
+        Builder() : m_config{} {}
+        Builder &setSize(int width, int height) {
+            m_config.width = width;
+            m_config.height = height;
+            return *this;
+        }
+        Builder &setTitle(const std::string &title) {
+            m_config.title = title;
+            return *this;
+        }
+        Builder &setHost(const std::string &host) {
+            m_config.defaultHostHint = host;
+            return *this;
+        }
+        Builder &setVSync(bool enabled) {
+            m_config.vsync = enabled;
+            return *this;
+        }
+        Builder &setResizable(bool resizable) {
+            m_config.resizable = resizable;
+            return *this;
+        }
+        GUI build() { return GUI(m_config); }
 
-    inline GLFWwindow *window = nullptr;
+       private:
+        Config m_config;
+    };
 
-    void CreateGlfWindow(const char *title) noexcept;
-    void DestroyGlfWindow() noexcept;
+    // Main interface
+    bool init();
+    void render();
+    void update();
+    bool shouldClose() const;
+    void closeGUI();
 
-    void CreateImGui() noexcept;
-    void Init() noexcept;
-    void Render() noexcept;
-    void DestroyImGui() noexcept;
+    // Getters
+    const Config &getConfig() const { return m_config; }
+    GLFWwindow *getWindow() const { return m_window.get(); }
 
+    GUI(const GUI &) = delete;
+    GUI &operator=(const GUI &) = delete;
 
-    inline std::string hostInput = "wss://localhost:4000";
-    inline std::string messageInput = "";
-    extern WSC* ws;
+   private:
+    explicit GUI(const Config &config) : m_config(config) {}
+    GUI() : m_config() {}
+
+    // Custom deleter for GLFW window
+    struct WindowDeleter {
+        void operator()(GLFWwindow *window) {
+            if (window) {
+                glfwDestroyWindow(window);
+                glfwTerminate();
+            }
+        }
+    };
+
+    // Member variables
+    Config m_config;
+    std::unique_ptr<GLFWwindow, WindowDeleter> m_window;
+    std::unique_ptr<WSC> m_websocket;
+    std::string m_hostInput;
+    std::string m_sendMessageInput;
+
+    // Internal methods
+    bool initWindow();
+    bool setWindowIcon();
+    bool initImGui();
+    void cleanupImGui();
+
+    // ImGui rendering methods
+    void renderMainWindow();
+    void renderStatusBar();
+
 };

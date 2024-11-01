@@ -1,78 +1,79 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include "gui.h"
-#include <iostream>
-#include <filesystem>
+
 #include "imgui.h"
-#include "imgui_stdlib.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 #include "imgui_custom.h"
 #include "imgui_freetype.h"
-
-#define STB_IMAGE_IMPLEMENTATION
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_stdlib.h"
 #include "stb_image.h"
 
-#include "ws.h"
+bool GUI::init() {
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW" << std::endl;
+        return false;
+    }
+    if (!initWindow()) {
+        std::cerr << "Failed to initialize window" << std::endl;
+        return false;
+    }
+    if (!initImGui()) {
+        std::cerr << "Failed to initialize ImGui" << std::endl;
+        return false;
+    }
+}
 
-WSC *gui::ws = nullptr;
-
-
-void SetWindowIcon(GLFWwindow* window, const char* iconPath)
-{
-    // Load the icon image
+bool GUI::setWindowIcon() {
     int width, height, channels;
-    unsigned char* image = stbi_load(iconPath, &width, &height, &channels, 4);
+    unsigned char *image = stbi_load(m_config.logoPath.c_str(), &width, &height, &channels, 4);
 
-    if (image)
-    {
+    if (image) {
         // Create GLFW image structure
         GLFWimage icons[1];
         icons[0].width = width;
         icons[0].height = height;
         icons[0].pixels = image;
-
-        glfwSetWindowIcon(window, 1, icons);
+        glfwSetWindowIcon(getWindow(), 1, icons);
         stbi_image_free(image);
-        std::cout << "Icon loaded and set successfully!" << std::endl;
+        return true;
     }
-    else
-    {
-        std::cerr << "Failed to load icon image: " << iconPath << std::endl;
-    }
+    return false;
 }
 
-void gui::CreateGlfWindow(const char *title) noexcept
-{
-    std::string path = std::filesystem::current_path().string();
+bool GUI::initWindow() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    window = glfwCreateWindow(WIDTH, HEIGHT, title, nullptr, nullptr);
-    if (!window)
-    {
+    m_window.reset(
+        glfwCreateWindow(m_config.width, m_config.height, m_config.title.c_str(), NULL, NULL));
+    if (!m_window) {
         glfwTerminate();
         std::cerr << "Failed to create window" << std::endl;
-        exit(EXIT_FAILURE);
+        return false;
     }
-    std::string imgPath = path.append("/assets/logo.png");
-    SetWindowIcon(window,imgPath.c_str());
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
+    if (!setWindowIcon()) {
+        std::cerr << "Failed to set window icon" << std::endl;
+        return false;
+    }
+    glfwMakeContextCurrent(getWindow());
+    glfwSwapInterval(m_config.vsync);
 }
 
-void gui::DestroyGlfWindow() noexcept
-{
-    glfwDestroyWindow(window);
-    window = nullptr;
-    glfwTerminate();
-}
-
-void gui::CreateImGui() noexcept
-{
-    std::string path = std::filesystem::current_path().string();
+bool GUI::initImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    io.IniFilename = nullptr;
+    if (ImGui::GetCurrentContext() == nullptr) {
+        std::cerr << "Error: Failed to create ImGui context!" << std::endl;
+        return false;
+    }
+
+    ImGuiIO &m_io = ImGui::GetIO();
+    m_io.IniFilename = nullptr;
     ImGui::StyleColorsClassic();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+
+    if (!ImGui_ImplGlfw_InitForOpenGL(getWindow(), true)) {
+        std::cerr << "Failed to initialize ImGui for GLFW" << std::endl;
+        return false;
+    }
 
 #if defined(__APPLE__)
     ImGui_ImplOpenGL3_Init("#version 120");
@@ -80,52 +81,116 @@ void gui::CreateImGui() noexcept
     ImGui_ImplOpenGL3_Init("#version 130");
 #endif
 
-    io.Fonts->AddFontDefault();
+    m_io.Fonts->AddFontDefault();
     static ImWchar ranges[] = {0x1, 0xFFFF, 0};
     static ImFontConfig cfg;
     cfg.OversampleH = cfg.OversampleV = 1;
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
-    std::string fontPath = path.append("/assets/NotoEmoji.ttf");
-    io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges);
-    io.Fonts->Build();
+    for (const auto &font : m_config.fonts) {
+        std::string fontPath = m_config.assetsPath + font;
+        if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
+            std::cerr << "Error: Failed to load font: " << fontPath << std::endl;
+            return false;
+        }
+    }
+    if (!m_io.Fonts->Build()) {
+        std::cerr << "Error: Failed to build fonts!" << std::endl;
+        return false;
+    }
+    m_io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_DockingEnable;
+    return true;
 }
 
-void gui::Init() noexcept
-{
-    WebsocketState current_ws_state = ws ? ws->getState() : WebsocketState::UNINITIALIZED;
+void GUI::cleanupImGui() {
+    std::cout << "Cleaning up ImGui" << std::endl;
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+}
+
+bool GUI::shouldClose() const { return glfwWindowShouldClose(getWindow()); }
+
+void GUI::closeGUI() { cleanupImGui(); }
+
+void GUI::update() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+}
 
-    ImGui::SetNextWindowSize({WIDTH, HEIGHT}, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos({0, 0}, ImGuiCond_FirstUseEver);
+void GUI::render() {
+    // Clear the background
+    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    ImGui::Begin("WSC", &quit, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
+    // Render main application window
+    renderMainWindow();
+    renderStatusBar();
+
+    // Render ImGui
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
+    glfwMakeContextCurrent(getWindow());
+}
+
+void GUI::renderStatusBar() {
+    // Create status bar at the bottom of the screen
+    const float statusBarHeight = 30.0f;
+    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMainViewport()->Pos.x,
+                                   ImGui::GetMainViewport()->Pos.y +
+                                       ImGui::GetMainViewport()->Size.y - statusBarHeight),
+                            ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, statusBarHeight),
+                             ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
+    ImGui::Begin("##statusbar", nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoMove);
+
+    ImGui::Text("Status: %s", "Connected");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 80);
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+    ImGui::End();
+}
+
+void GUI::renderMainWindow() {
+    WebsocketState current_ws_state =
+        m_websocket ? m_websocket->getState() : WebsocketState::UNINITIALIZED;
+
+    ImGui::SetNextWindowSize(
+        ImVec2(ImGui::GetMainViewport()->Size.x, ImGui::GetMainViewport()->Size.y - 29.0f),
+        ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
+    ImGui::Begin("WSC", NULL,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoTitleBar);
 
     ImGui::Spacing();
     ImGui::Text("Host:");
-    ImGui::InputTextWithHint("##Host", "wss://echo.websocket.org", &hostInput);
+    ImGui::InputTextWithHint("##Host", m_config.defaultHostHint.c_str(), &m_hostInput);
     ImGui::SameLine();
 
-    if (current_ws_state == WebsocketState::CONNECTED)
-    {
-        if (ImGui::Button("Disconnect"))
-        {
-            ws->close();
-        }
-    }
-    else
-    {
-        if (ImGui::Button("Connect"))
-        {
-            std::cout << "Connecting to " << hostInput << std::endl;
-            try
-            {
-                ws = new WSC(hostInput);
+    if (current_ws_state == WebsocketState::CONNECTED) {
+        if (ImGui::Button("Disconnect")) {
+            try {
+                m_websocket->close();
+            } catch (...) {
+                std::cerr << "Error closing WebSocket: " << std::endl;
             }
-            catch (const std::exception &e)
-            {
+        }
+    } else {
+        if (ImGui::Button("Connect")) {
+            std::cout << "Connecting to " << m_hostInput << std::endl;
+            try {
+                m_websocket = std::make_unique<WSC>(m_hostInput);
+            } catch (const std::exception &e) {
                 std::cerr << "Error: " << e.what() << std::endl;
             }
         }
@@ -145,25 +210,30 @@ void gui::Init() noexcept
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-    ImGui::BeginDisabled(ws == nullptr || ws->getState() != WebsocketState::CONNECTED);
+    ImGui::BeginDisabled(m_websocket == nullptr ||
+                         m_websocket->getState() != WebsocketState::CONNECTED);
     ImGui::Text("Messages:");
-    ImGui::BeginChild("Messages", ImVec2(0, HEIGHT - 250), true);
-    if (ws && ws->getState() == WebsocketState::CONNECTED)
-    {
-        auto messages = ws->getMessages();
-        for (auto &message : messages)
-        {
+    ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250), true);
+    if (m_websocket && m_websocket->getState() == WebsocketState::CONNECTED) {
+        auto messages = m_websocket->getMessages();
+        for (auto &message : messages) {
             std::string inputId = "m_messages";
             inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
-            std::string input = (message.type == Message::MessageType::SENT ? "⬆ [" : "⬇ [") + message.getFormattedTimestamp() + "] " + message.content;
+            std::string input = (message.type == Message::MessageType::SENT ? "⬆ [" : "⬇ [") +
+                                message.getFormattedTimestamp() + "] " + message.content;
             int lineCount = std::count(input.begin(), input.end(), '\n') + 1;
             char *buffer = (char *)malloc(input.size() + 1);
             strcpy(buffer, input.c_str());
 
             ImGui::PushID(inputId.c_str());
             ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Text, message.type == Message::MessageType::SENT ? IM_COL32(255, 229, 163, 255) : IM_COL32(255, 255, 255, 255));
-            ImGui::InputTextMultiline("", buffer, input.size() + 1, ImVec2(-FLT_MIN, (ImGui::GetTextLineHeight() * lineCount) + 7), ImGuiInputTextFlags_ReadOnly);
+            ImGui::PushStyleColor(ImGuiCol_Text, message.type == Message::MessageType::SENT
+                                                     ? IM_COL32(255, 229, 163, 255)
+                                                     : IM_COL32(255, 255, 255, 255));
+            ImGui::InputTextMultiline(
+                "", buffer, input.size() + 1,
+                ImVec2(-FLT_MIN, (ImGui::GetTextLineHeight() * lineCount) + 7),
+                ImGuiInputTextFlags_ReadOnly);
             ImGui::PopStyleColor();
             ImGui::PopStyleColor();
             ImGui::PopID();
@@ -174,23 +244,24 @@ void gui::Init() noexcept
     ImGui::EndChild();
 
     static bool focusOnInput = false;
-    if (focusOnInput)
-    {
+    if (focusOnInput) {
         ImGui::SetKeyboardFocusHere();
         focusOnInput = false;
     }
-    bool send = ImGui::InputTextMultiline("##Send", &messageInput,
-                                          ImVec2(ImGui::GetWindowWidth() - 100, ImGui::GetTextLineHeight() * 5),
-                                          ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_EnterReturnsTrue);
+    bool send = ImGui::InputTextMultiline(
+        "##Send", &m_sendMessageInput,
+        ImVec2(ImGui::GetWindowWidth() - 100, ImGui::GetTextLineHeight() * 5),
+        ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    if (ImGui::Button("Send") || send)
-    {
-        if (messageInput.length() > 0)
-        {
-            if (ws && ws->getState() == WebsocketState::CONNECTED)
-            {
-                ws->sendMsg(messageInput);
-                messageInput.clear();
+    if (ImGui::Button("Send") || send) {
+        std::cout << "Sending message: " << m_sendMessageInput << std::endl;
+        if (m_sendMessageInput.length() > 0) {
+            if (m_websocket && m_websocket->getState() == WebsocketState::CONNECTED) {
+                std::cout << "Message sending" << std::endl;
+
+                m_websocket->sendMsg(m_sendMessageInput);
+                m_sendMessageInput.clear();
+                std::cout << "Message sent" << std::endl;
             }
         }
         focusOnInput = true;
@@ -198,19 +269,4 @@ void gui::Init() noexcept
     ImGui::EndDisabled();
 
     ImGui::End();
-}
-
-void gui::Render() noexcept
-{
-    ImGui::Render();
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
-void gui::DestroyImGui() noexcept
-{
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
 }
