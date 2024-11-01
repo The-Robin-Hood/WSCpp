@@ -13,3 +13,5 @@ CMakeUserPresets.json
 
 .vscode
 build
+
+OpenSSL-Win64
