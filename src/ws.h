@@ -10,10 +10,15 @@
 #include "Poco/Net/HTTPMessage.h"
 #include "Poco/Net/WebSocket.h"
 #include "Poco/Net/HTTPClientSession.h"
+#include "Poco/Net/HTTPSClientSession.h"
+#include "Poco/Net/SSLManager.h"
+#include "Poco/Net/Context.h"
+#include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/URI.h"
 
 #define SERVER_CRASH_DETECTION_THRESHOLD 10
 
+using Poco::Net::HTTPSClientSession;
 using Poco::Net::HTTPClientSession;
 using Poco::Net::HTTPMessage;
 using Poco::Net::HTTPRequest;
@@ -64,8 +69,9 @@ public:
 
 private:
     WebsocketState _currentState;
-    HTTPClientSession *_session;
-    WebSocket *_websocket;
+    HTTPClientSession *_session = nullptr;
+    HTTPSClientSession *_secureSession = nullptr;
+    WebSocket *_websocket = nullptr;
 
     std::vector<Message> *_messages;
     std::mutex _messagesMutex;
