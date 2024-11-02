@@ -90,7 +90,7 @@ bool GUI::initImGui() {
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
     for (const auto &font : m_config.fonts) {
-        std::string fontPath = m_config.assetsPath + font;
+        std::string fontPath = "assets/fonts/"+font;
         if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
             std::cerr << "Error: Failed to load font: " << fontPath << std::endl;
             return false;

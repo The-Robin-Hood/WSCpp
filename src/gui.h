@@ -6,7 +6,6 @@
 #include <GLFW/glfw3.h>
 #include <ws.h>
 
-#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -21,8 +20,7 @@ class GUI {
         std::string defaultHostHint = "wss://192.168.0.175:8000";
         bool vsync = true;
         bool resizable = true;
-        std::string assetsPath = std::filesystem::current_path().string().append("/assets/");
-        std::string logoPath = assetsPath + "logo.png";
+        std::string logoPath = "assets/images/logo.png";
         std::vector<std::string> fonts = {"NotoEmoji.ttf"};
     };
 
