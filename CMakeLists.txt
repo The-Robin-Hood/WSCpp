@@ -8,6 +8,8 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
 if(WIN32 OR APPLE)
     if(OPENSSL_ROOT_DIR)
@@ -118,6 +120,15 @@ if(WIN32)
         opengl32
         freetype
     )
+    file(GLOB OPENSSL_DLLS "${OPENSSL_ROOT_DIR}/*.dll")
+    message("OpenSSL DLLs: ${OPENSSL_DLLS}")
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${OPENSSL_DLLS}
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMENT "Copying OpenSSL DLLs to build directory"
+    )
 elseif(APPLE)
     message("Building for macOS")
     target_link_libraries(${PROJECT_NAME}
@@ -140,3 +151,15 @@ else()
         OpenGL::GL
     )
 endif()
+
+# Copy resources to build directory
+set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(ASSETS_DEST_DIR "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets")
+
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${ASSETS_DIR}
+    ${ASSETS_DEST_DIR}
+    COMMENT "\nCopying assets to build directory"
+)
