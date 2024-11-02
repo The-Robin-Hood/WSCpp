@@ -22,6 +22,7 @@ bool GUI::init() {
         std::cerr << "Failed to initialize ImGui" << std::endl;
         return false;
     }
+    return true;
 }
 
 bool GUI::setWindowIcon() {
@@ -56,6 +57,7 @@ bool GUI::initWindow() {
     }
     glfwMakeContextCurrent(getWindow());
     glfwSwapInterval(m_config.vsync);
+    return true;
 }
 
 bool GUI::initImGui() {
