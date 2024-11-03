@@ -1,6 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "gui.h"
 
-int main(int argc, char **argv) {
+int main() {
     GUI &gui = GUI::getInstance();
     if (!gui.init()) {
         return -1;

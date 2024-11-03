@@ -31,7 +31,7 @@ bool GUI::setWindowIcon() {
 
     if (image) {
         // Create GLFW image structure
-        GLFWimage icons[1];
+        GLFWimage icons[1]{};
         icons[0].width = width;
         icons[0].height = height;
         icons[0].pixels = image;
@@ -215,7 +215,7 @@ void GUI::renderMainWindow() {
     ImGui::BeginDisabled(m_websocket == nullptr ||
                          m_websocket->getState() != WebsocketState::CONNECTED);
     ImGui::Text("Messages:");
-    ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250), true);
+    ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250.0f), true);
     if (m_websocket && m_websocket->getState() == WebsocketState::CONNECTED) {
         auto messages = m_websocket->getMessages();
         for (auto &message : messages) {
@@ -223,7 +223,7 @@ void GUI::renderMainWindow() {
             inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
             std::string input = (message.type == Message::MessageType::SENT ? "⬆ [" : "⬇ [") +
                                 message.getFormattedTimestamp() + "] " + message.content;
-            int lineCount = std::count(input.begin(), input.end(), '\n') + 1;
+            int lineCount = (int)std::count(input.begin(), input.end(), '\n') + 1;
             char *buffer = (char *)malloc(input.size() + 1);
             strcpy(buffer, input.c_str());
 

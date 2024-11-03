@@ -14,6 +14,7 @@
 #include "Poco/Net/SSLManager.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/AcceptCertificateHandler.h"
+#include <Poco/Net/PrivateKeyPassphraseHandler.h>
 #include "Poco/URI.h"
 
 #define SERVER_CRASH_DETECTION_THRESHOLD 10

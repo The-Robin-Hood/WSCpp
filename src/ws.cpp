@@ -23,12 +23,10 @@ WSC::WSC(const std::string &url) {
                                                                    // simplicity
             );
             Poco::Net::SSLManager::instance().initializeClient(0, ptrHandler, pContext);
-            _secureSession = new HTTPSClientSession(_host, _port);
-            _secureSession->setConnectTimeout(Poco::Timespan(5, 0));
-            _secureSession->setReceiveTimeout(Poco::Timespan(0, 0));
-            _secureSession->setSendTimeout(Poco::Timespan(0, 0));
+            _secureSession = new HTTPSClientSession(_host, (Poco::UInt16)_port);
+            _secureSession->setTimeout(Poco::Timespan(5, 0));
         } else {
-            _session = new HTTPClientSession(_host, _port);
+            _session = new HTTPClientSession(_host, (Poco::UInt16)_port);
             _session->setTimeout(Poco::Timespan(5, 0));
         }
         HTTPRequest request(HTTPRequest::HTTP_GET, _path, HTTPMessage::HTTP_1_1);
@@ -42,7 +40,7 @@ WSC::WSC(const std::string &url) {
         } else {
             _websocket = new WebSocket(*_session, request, response);
         }
-        _websocket->setBlocking(false);
+        _websocket->setReceiveTimeout(Poco::Timespan(1, 0)); 
 
         if (response.getStatus() == HTTPResponse::HTTP_SWITCHING_PROTOCOLS) {
             _currentState = WebsocketState::CONNECTED;
@@ -122,7 +120,7 @@ bool WSC::sendMsg(const std::string &message) {
             }
         } else {
             int flags = WebSocket::FRAME_TEXT;
-            int sent = _websocket->sendFrame(message.data(), message.size(), flags);
+            int sent = _websocket->sendFrame(message.data(), (int)message.size(), flags);
 
             total += sent;
         }
