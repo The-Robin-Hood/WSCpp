@@ -15,3 +15,6 @@ CMakeUserPresets.json
 build
 
 OpenSSL-Win64
+
+node_modules
+package-lock.json
