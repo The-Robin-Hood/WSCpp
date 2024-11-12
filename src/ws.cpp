@@ -1,280 +1,563 @@
 #include "ws.h"
 
-WSC::WSC(const std::string &url) {
-    _currentState = WebsocketState::UNINITIALIZED;
-    _messages = new std::vector<Message>();
-    _running = true;
-
-    try {
-        parseURI(url);
-    } catch (const std::exception &e) {
-        std::cerr << "Init error: " << e.what() << std::endl;
+WSC::WSC(const std::string &url, const Config &config) : m_url(url), m_config(config) {
+    m_messageQueue = std::make_unique<MessageQueue>();
+    if (url.empty()) {
+        throw std::invalid_argument("Empty URL provided");
     }
-    try {
-        _currentState = WebsocketState::CONNECTING;
-        if (_isSecure) {
-            // initialize SSL
-            Poco::SharedPtr<Poco::Net::InvalidCertificateHandler> ptrHandler =
-                new Poco::Net::AcceptCertificateHandler(false);
-            Poco::Net::Context::Ptr pContext = new Poco::Net::Context(
-                Poco::Net::Context::CLIENT_USE,
-                "",                                                // Use default certificates
-                Poco::Net::Context::VerificationMode::VERIFY_NONE  // Disable verification for
-                                                                   // simplicity
+    parseURI(url);
+
+    if (m_host.empty()) {
+        throw std::invalid_argument("Invalid host");
+    }
+
+    if (m_port <= 0 || m_port > 65535) {
+        throw std::invalid_argument("Invalid port number");
+    }
+    if (m_isSecure) {
+        Poco::Net::Context::Ptr sslContext =
+            new Poco::Net::Context(Poco::Net::Context::TLS_CLIENT_USE,
+                                   m_config.certificatePath,  // No certificate file
+                                   m_config.privateKeyPath,   // No private key file
+                                   m_config.caLocation,       // No CA location
+                                   static_cast<Poco::Net::Context::VerificationMode>(
+                                       m_config.verificationMode),  // No verification
+                                   9,                               // Verification depth
+                                   false,                           // Don't load default CAs
+                                   m_config.cipherList              // Cipher list
             );
-            Poco::Net::SSLManager::instance().initializeClient(0, ptrHandler, pContext);
-            _secureSession = new HTTPSClientSession(_host, (Poco::UInt16)_port);
-            _secureSession->setTimeout(Poco::Timespan(5, 0));
-        } else {
-            _session = new HTTPClientSession(_host, (Poco::UInt16)_port);
-            _session->setTimeout(Poco::Timespan(5, 0));
+        Poco::SharedPtr<Poco::Net::InvalidCertificateHandler> certHandler =
+            new Poco::Net::AcceptCertificateHandler(false);
+        Poco::Net::SSLManager::instance().initializeClient(nullptr, certHandler, sslContext);
+        m_secureSession = std::make_unique<Poco::Net::HTTPSClientSession>(m_host, m_port);
+        m_secureSession->setTimeout(m_config.connectionTimeout);
+    } else {
+        m_session = std::make_unique<Poco::Net::HTTPClientSession>(m_host, m_port);
+        m_session->setTimeout(m_config.connectionTimeout);
+    }
+}
+
+WSC::~WSC() {
+    stopThreads();
+    if (m_sendThread && m_sendThread->joinable()) {
+        std::cout << "Joining send thread" << std::endl;
+        m_sendThread->join();
+        std::cout << "Send thread joined" << std::endl;
+    }
+    if (m_receiveThread && m_receiveThread->joinable()) {
+        std::cout << "Joining receive thread" << std::endl;
+        m_receiveThread->join();
+        std::cout << "Receive thread joined" << std::endl;
+    }
+    if (m_pingThread && m_pingThread->joinable()) {
+        std::cout << "Joining ping thread" << std::endl;
+        m_pingThread->join();
+        std::cout << "Ping thread joined" << std::endl;
+    }
+    if (m_state == State::CONNECTED) {
+        updateState(State::DISCONNECTED);
+    }
+    cleanupResources();
+}
+
+// ================================== PUBLIC METHODS ==================================
+bool WSC::connect() {
+    if (m_state == State::CONNECTING || m_state == State::CONNECTED) {
+        std::cerr << "Already connected or connecting" << std::endl;
+        return false;
+    }
+    updateState(State::CONNECTING);
+    HTTPRequest request(HTTPRequest::HTTP_GET, m_path, HTTPMessage::HTTP_1_1);
+    request.set("User-Agent", m_config.userAgent);
+    request.set("Upgrade", "websocket");
+    request.set("Connection", "Upgrade");
+    request.set("Sec-WebSocket-Version", "13");
+
+    if (!m_config.subprotocols.empty()) {
+        std::string subprotocols = "";
+        for (const auto &protocol : m_config.subprotocols) {
+            if (protocol != m_config.subprotocols.back())
+                subprotocols += protocol + ", ";
+            else
+                subprotocols += protocol;
         }
-        HTTPRequest request(HTTPRequest::HTTP_GET, _path, HTTPMessage::HTTP_1_1);
-        request.set("User-Agent", "WSC++ v0.1");
-        request.set("Upgrade", "websocket");
-        request.set("Connection", "Upgrade");
-        request.set("Sec-WebSocket-Version", "13");
-        HTTPResponse response;
-        if (_isSecure) {
-            _websocket = new WebSocket(*_secureSession, request, response);
-        } else {
-            _websocket = new WebSocket(*_session, request, response);
-        }
-        _websocket->setReceiveTimeout(Poco::Timespan(1, 0)); 
+        request.set("Sec-WebSocket-Protocol", subprotocols);
+    }
+
+    HTTPResponse response;
+    try {
+        m_websocket = std::make_unique<Poco::Net::WebSocket>(
+            m_isSecure ? *m_secureSession : *m_session, request, response);
+        m_websocket->setSendTimeout(m_config.sendTimeout);
+        m_websocket->setReceiveTimeout(m_config.receiveTimeout);
+        m_websocket->setMaxPayloadSize(m_config.receiveMaxPayloadSize);
+        m_websocket->setSendBufferSize(m_config.sendBufferSize);
+        m_websocket->setReceiveBufferSize(m_config.receiveBufferSize);
+
+        //  LATER: Add more options
+        // m_websocket->setLinger - SO_LINGER used to close connection gracefully
+        // m_websocket->setKeepAlive(true)  // Keep connection alive
+        // m_websocket->setNoDelay(true);  // Disable Nagle's algorithm
 
         if (response.getStatus() == HTTPResponse::HTTP_SWITCHING_PROTOCOLS) {
-            _currentState = WebsocketState::CONNECTED;
+            updateState(State::CONNECTED);
             std::cout << "Connected to WebSocket server" << std::endl;
-            _receiveThread = std::thread(&WSC::_receiveLoop, this);
+            startPingThread();
+            startSendThread();
+            startReceiveThread();
+            resetRetryCount();
+            return true;
         } else {
-            _currentState = WebsocketState::DISCONNECTED;
             throw std::runtime_error("Failed to connect to WebSocket server");
         }
+    } catch (const Poco::Exception &exc) {
+        std::cerr << "Init error: " << exc.displayText() << std::endl;
+        if (shouldRetry()) {
+            std::cerr << "Retrying connection" << std::endl;
+            incrementRetryCount();
+            std::this_thread::sleep_for(m_config.retryDelay);
+            updateState(State::UNINITIALIZED);
+            return connect();
+        }
+        updateState(State::WS_ERROR, exc.displayText());
+        return false;
     } catch (const std::exception &e) {
-        std::cerr << "Connection error: " << e.what() << std::endl;
-        _currentState = WebsocketState::DISCONNECTED;
-        throw e;
-    }
-}
-
-WSC::~WSC() { close(); }
-
-void WSC::parseURI(const std::string &url) {
-    std::string httpUrl = url;
-    try {
-        // Remove ws:// or wss:// and add http:// or https:// for URI parsing
-        if (url.substr(0, 5) == "ws://") {
-            httpUrl = "http://" + url.substr(5);
-            _isSecure = false;
-        } else if (url.substr(0, 6) == "wss://") {
-            httpUrl = "https://" + url.substr(6);
-            _isSecure = true;
-        } else {
-            // Invalid URL format
-            throw std::runtime_error(
-                "Invalid WebSocket URL scheme. Must start with ws:// or wss://");
-        }
-
-        Poco::URI uri(httpUrl);
-        _scheme = uri.getScheme();
-        _host = uri.getHost();
-        _path = uri.getPathAndQuery();
-        _port = uri.getPort();
-
-        // Use default ports if not specified
-        if (_port == -1) {
-            _port = _isSecure ? 443 : 80;
-            std::cout << "Using default port: " << _port << std::endl;
-        }
-
-        if (_path.empty()) {
-            _path = "/";
-        }
-    } catch (const Poco::Exception &e) {
-        throw std::runtime_error("Failed to parse URL: " + std::string(e.what()));
-    }
-}
-
-bool WSC::sendMsg(const std::string &message) {
-    try {
-        int total = 0;
-        if (_currentState != WebsocketState::CONNECTED || !_websocket) {
-            return false;
-        }
-
-        auto start = std::chrono::steady_clock::now();
-        if (message.size() > 125) {
-            std::string mutableMessage = message;
-            bool first_frame = true;
-            while (!mutableMessage.empty()) {
-                int flags = first_frame ? WebSocket::FRAME_OP_TEXT : WebSocket::FRAME_OP_CONT;
-                int chunk_size = std::min(static_cast<int>(mutableMessage.size()), 125);
-                if (chunk_size == mutableMessage.size()) {
-                    flags |= WebSocket::FRAME_FLAG_FIN;
-                }
-                int sent = _websocket->sendFrame(mutableMessage.data(), chunk_size, flags);
-                mutableMessage = mutableMessage.substr(chunk_size);
-                first_frame = false;
-                total += sent;
-                std::cout << "Sent " << sent << " bytes" << std::endl;
-            }
-        } else {
-            int flags = WebSocket::FRAME_TEXT;
-            int sent = _websocket->sendFrame(message.data(), (int)message.size(), flags);
-
-            total += sent;
-        }
-        auto end = std::chrono::steady_clock::now();
-        std::cout << "Time taken for sendFrame: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-                  << " ms" << std::endl;
-
-        {
-            std::lock_guard<std::mutex> lock(_messagesMutex);
-            _messages->push_back(Message(Message::MessageType::SENT, message));
-        }
-
-        return total == message.size();
-    } catch (const std::exception &e) {
-        std::cerr << "Send error: " << e.what() << std::endl;
-        _currentState = WebsocketState::DISCONNECTED;
+        std::cerr << "Init error: " << e.what() << std::endl;
+        updateState(State::WS_ERROR, e.what());
         return false;
     }
 }
 
-void WSC::_receiveLoop() {
-    int contFrameCount = 0;
+void WSC::disconnect(uint16_t code, const std::string &reason) {
+    if (m_state == State::DISCONNECTED || m_state != State::CONNECTED) return;
 
-    while (_running) {
+    std::vector<unsigned char> payload;
+    payload.reserve(2 + reason.size());
+
+    payload.push_back(static_cast<unsigned char>((code >> 8) & 0xFF));
+    payload.push_back(static_cast<unsigned char>(code & 0xFF));
+
+    payload.insert(payload.end(), reason.begin(), reason.end());
+
+    if (!sendFrame(payload.data(), payload.size(), MessageType::CLOSE)) {
+        std::cerr << "Failed to send close frame" << std::endl;
+        return;
+    }
+}
+
+bool WSC::reconnect() {
+    if (m_state == State::CONNECTED) disconnect();
+    return connect();
+}
+
+bool WSC::sendPing() {
+    if (m_state == State::CONNECTED) {
+        if (!sendFrame(nullptr, 0, MessageType::PING)) {
+            std::cerr << "Failed to send PING" << std::endl;
+            return false;
+        };
+        return true;
+    }
+    return false;
+}
+
+bool WSC::sendText(std::string &message) {
+    if (m_state != State::CONNECTED) return false;
+    std::vector<unsigned char> payload(message.begin(), message.end());
+    m_messageQueue->push(Message{MessageType::TEXT, payload});
+    return true;
+}
+
+bool WSC::sendBinary(const std::vector<uint8_t> &data) {
+    if (m_state != State::CONNECTED) return false;
+    m_messageQueue->push(Message{MessageType::BINARY, data});
+    return true;
+}
+
+// ================================== PRIVATE METHODS =================================
+
+// ================================= SEND THREAD =================================
+void WSC::startSendThread() {
+    if (m_sendThreadRunning) return;
+    if (m_sendThread && m_sendThread->joinable()) {
+        m_sendThread->join();
+    }
+    std::cout << "Starting send thread" << std::endl;
+    m_sendThreadRunning = true;
+    m_sendThread = std::make_unique<std::thread>(&WSC::sendLoop, this);
+}
+
+bool WSC::sendFrame(const void *buffer, size_t length, int flags) {
+    if (m_state != State::CONNECTED) return false;
+    int len = static_cast<int>(length);
+    try {
+        int totalBytesSent = 0;
+        if (len > m_config.sendChunkSize) {
+            bool firstFrame = true;
+            while (totalBytesSent < len) {
+                if (!firstFrame) {
+                    flags = MessageType::CONTINUATION;
+                }
+                if (totalBytesSent + m_config.sendChunkSize >= len) {
+                    flags |= MessageType::FIN;
+                }
+                int bytesToSend = std::min<int>(m_config.sendChunkSize, len - totalBytesSent);
+                int sent = m_websocket->sendFrame(
+                    static_cast<const char *>(buffer) + totalBytesSent, bytesToSend, flags);
+                if (sent < 0) {
+                    std::cerr << "Failed to send message" << std::endl;
+                    return false;
+                }
+                firstFrame = false;
+                totalBytesSent += sent;
+            }
+        } else {
+            flags |= MessageType::FIN;
+            totalBytesSent = m_websocket->sendFrame(buffer, len, flags);
+        }
+
+        return totalBytesSent == len;
+    } catch (const Poco::Exception &e) {
+        std::cerr << "Send error: " << e.displayText() << std::endl;
+        updateState(State::WS_ERROR, e.displayText());
+        return false;
+    }
+}
+
+void WSC::sendLoop() {
+    while (m_sendThreadRunning) {
+        try {
+            Message m_message;
+            m_messageQueue->try_pop(m_message);
+            if (m_message.type != MessageType::UNINITIALIZED && m_state == State::CONNECTED) {
+                if (!sendFrame(m_message.payload.data(), m_message.payload.size(),
+                               m_message.type)) {
+                    std::cerr << "Failed to send message" << std::endl;
+                }
+            }
+        } catch (const std::exception &e) {
+            std::cerr << "Send error: " << e.what() << std::endl;
+            updateState(State::WS_ERROR, e.what());
+        }
+    }
+    std::cout << "Send thread stopped" << std::endl;
+}
+
+void WSC::stopSendThread() {
+    if (!m_sendThreadRunning) return;
+    m_sendThreadRunning = false;
+}
+
+// ================================= RECEIVE THREAD =================================
+
+void WSC::startReceiveThread() {
+    if (m_receiveThreadRunning) return;
+    if (m_receiveThread && m_receiveThread->joinable()) {
+        m_receiveThread->join();
+    }
+    std::cout << "Starting receive thread" << std::endl;
+    m_receiveThreadRunning = true;
+    m_receiveThread = std::make_unique<std::thread>(&WSC::receiveLoop, this);
+}
+
+bool WSC::handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_t length) {
+    switch (opcode) {
+        case MessageType::PING: {
+            std::string payload = "PING " + std::string(buffer.begin(), buffer.end());
+            std::cout << "PING RECEIVED" << std::endl;
+            if (m_controlMessageCallback) {
+                m_controlMessageCallback(Message{
+                    MessageType::PING, std::vector<uint8_t>(payload.begin(), payload.end())});
+            }
+            if (m_config.autoPong) {
+                if (!sendFrame(buffer.begin(), length, MessageType::PONG)) {
+                    std::cerr << "Failed to send PONG" << std::endl;
+                }
+            }
+            return true;
+        }
+
+        case MessageType::PONG: {
+            std::string payload = "PONG " + std::string(buffer.begin(), buffer.end());
+            std::cout << "PONG RECEIVED" << std::endl;
+            if (m_controlMessageCallback) {
+                m_controlMessageCallback(Message{
+                    MessageType::PONG, std::vector<uint8_t>(payload.begin(), payload.end())});
+            }
+            m_pongNotReceivedCount = 0;
+            return true;
+        }
+
+        case MessageType::CLOSE: {
+            std::cout << "CLOSE RECEIVED" << std::endl;
+            if (length < 2) {
+                std::cerr << "Received WebSocket CLOSE frame with length less than 2" << std::endl;
+                return false;
+            }
+            handleClose(static_cast<uint16_t>(static_cast<unsigned char>(buffer[0]) << 8 |
+                                              static_cast<unsigned char>(buffer[1])),
+                        length > 2 ? std::string(buffer.begin() + 2, buffer.end()) : "");
+            return true;
+        }
+
+        default:
+            std::cerr << "Unknown control frame type: " << opcode << std::endl;
+            return false;
+    }
+}
+
+bool WSC::handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &buffer,
+                          size_t length) {
+    const char *frameTypes[] = {"CONTINUATION", "TEXT", "BINARY"};
+    if (opcode <= MessageType::BINARY) {
+        if (opcode == MessageType::CONTINUATION) {
+            if (m_serverCrashContinuationFrame > m_config.serverCrashContinuationFrame) {
+                return false;
+            }
+            m_serverCrashContinuationFrame++;
+            return true;
+        }
+        if (m_dataMessageCallback) {
+            std::cout << "CALLING CALLBACK" << std::endl;
+            m_dataMessageCallback(Message{static_cast<MessageType>(opcode),
+                                          std::vector<uint8_t>(buffer.begin(), buffer.end())});
+        }
+        m_serverCrashContinuationFrame = 0;
+        std::cout << frameTypes[opcode] << " RECEIVED " << length <<" bytes"<< (isFinal ? " (FINAL)" : " (FRAGMENT)")
+                  << std::endl;
+        if (opcode == MessageType::TEXT) {
+            std::cout << "Payload: " << std::string(buffer.begin(), buffer.end()) << std::endl;
+        }else if (opcode == MessageType::BINARY) {
+            std::cout << "Payload: ";
+            for (const auto &byte : buffer) {
+                std::cout << std::hex << static_cast<int>(byte) << " ";
+            }
+            std::cout << std::dec << std::endl; // Reset to decimal
+        }
+        return true;
+    }
+
+    std::cerr << "Unknown data frame type: " << opcode << std::endl;
+    return false;
+}
+
+void WSC::handleClose(uint16_t code, const std::string &reason) {
+    std::cout << "Closing connection: " << code << " - " << reason << std::endl;
+    std::string closePayload = std::to_string(code) + " - " + reason;
+    if (m_controlMessageCallback) {
+        m_controlMessageCallback(Message{
+            MessageType::CLOSE, std::vector<uint8_t>(closePayload.begin(), closePayload.end())});
+    }
+    updateState(State::DISCONNECTING);
+}
+
+bool WSC::processFrame(const Poco::Buffer<char> &buffer, size_t length, int flags) {
+    const int opcode = getOpcode(flags);
+    const bool isFinal = isFinalFrame(flags);
+
+    if (!isValidFrameLength(opcode, length)) {
+        std::cerr << "Invalid frame length: opcode=" << opcode << " length=" << length
+                  << std::endl;
+        return false;
+    }
+
+    std::cout << "Processing frame: "
+              << "Flags=" << flags << " "
+              << "Opcode=" << opcode << " "
+              << "Final=" << (isFinal ? "true" : "false") << " "
+              << "Length=" << length << std::endl;
+
+    // Handle control frames (PING, PONG, CLOSE)
+    if (opcode >= MessageType::CLOSE) {
+        return handleControlFrame(opcode, buffer, length);
+    }
+
+    // Handle data frames (TEXT, BINARY, CONTINUATION)
+    return handleDataFrame(opcode, isFinal, buffer, length);
+}
+
+void WSC::receiveLoop() {
+    int errorFrameCount = 0;
+    while (m_receiveThreadRunning) {
         try {
             Poco::Buffer<char> buffer(0);
             int flags;
-            int n = _websocket->receiveFrame(buffer, flags);
-            std::cout << "Received " << n << " bytes" << std::endl;
+            int n = m_websocket->receiveFrame(buffer, flags);
 
-            int opcode = flags & WebSocket::FRAME_OP_BITMASK;
-            switch (opcode) {
-                case WebSocket::FRAME_OP_CONT: {
-                    std::cout << "FRAME_OP_CONT" << std::endl;
-                    if (n <= 0) {
-                        contFrameCount++;
-                        if (contFrameCount >= SERVER_CRASH_DETECTION_THRESHOLD) {
-                            std::cerr << "Server is not responding. Disconnecting." << std::endl;
-                            _currentState = WebsocketState::DISCONNECTED;
-                            _running = false;
-                            break;
-                        }
-                        std::this_thread::sleep_for(
-                            std::chrono::milliseconds(100));  // Avoid tight loop
-                        continue;
-                    }
-                    contFrameCount = 0;
+            if (!processFrame(buffer, n, flags)) {
+                if (m_serverCrashContinuationFrame > m_config.serverCrashContinuationFrame) {
+                    std::cerr << "Server crash detected. Disconnecting." << std::endl;
+                    updateState(State::WS_ERROR, "Server crash detected");
                     break;
                 }
-                case WebSocket::FRAME_OP_TEXT: {
-                    std::cout << "FRAME_OP_TEXT" << std::endl;
-                    std::string message(buffer.begin(), buffer.begin() + n);
-                    std::lock_guard<std::mutex> lock(_messagesMutex);
-                    _messages->push_back(Message(Message::MessageType::RECEIVED, message));
+
+                std::cerr << "Failed to process frame" << std::endl;
+                errorFrameCount++;
+                if (errorFrameCount > 10) {
+                    std::cerr << "Too many error frames. Disconnecting." << std::endl;
+                    updateState(State::WS_ERROR, "Too many error frames");
                     break;
                 }
-                case WebSocket::FRAME_OP_BINARY: {
-                    std::cout << "FRAME_OP_BINARY" << std::endl;
-                    std::string message = "Binary data received (" + std::to_string(n) + " bytes)";
-                    std::lock_guard<std::mutex> lock(_messagesMutex);
-                    _messages->push_back(Message(Message::MessageType::RECEIVED, message));
-                    break;
-                }
-                case WebSocket::FRAME_OP_CLOSE: {
-                    std::cout << "FRAME_OP_CLOSE" << std::endl;
-                    if (n >= 2) {
-                        int closeCode = ((unsigned char)buffer[0] << 8) + (unsigned char)buffer[1];
-                        std::cout << "Close code: " << closeCode << std::endl;
-                        if (n > 2) {
-                            std::string closeReason(buffer.begin() + 2, buffer.begin() + n);
-                            std::cout << "Close reason: " << closeReason << std::endl;
-                        }
-                    }
-                    std::cerr << "Received Close frame from server. Disconnecting." << std::endl;
-                    _currentState = WebsocketState::DISCONNECTED;
-                    _running = false;
-                    break;
-                }
-                case WebSocket::FRAME_OP_PING: {
-                    std::cout << "FRAME_OP_PING" << std::endl;
-                    std::cout << "Ping received" << std::endl;
-                    std::cout << std::string(buffer.begin(), buffer.begin() + n) << " " << n
-                              << std::endl;
-                    _websocket->sendFrame(buffer.begin(), n,
-                                          WebSocket::FRAME_OP_PONG | WebSocket::FRAME_FLAG_FIN);
-                    std::cout << "Pong sent" << std::endl;
-                    break;
-                }
-                case WebSocket::FRAME_OP_PONG:
-                    std::cout << "FRAME_OP_PONG" << std::endl;
-                    break;
-                default:
-                    std::cout << "Unknown opcode" << std::endl;
-                    break;
+            } else {
+                errorFrameCount = 0;
             }
         } catch (Poco::Exception &exc) {
-            if (exc.code() == POCO_EAGAIN || exc.code() == POCO_ETIMEDOUT || exc.displayText() == "Timeout") {
-                // std::cerr << "Timeout receiving message: " << exc.displayText() << std::endl;
+            if (exc.code() == POCO_EAGAIN || exc.code() == POCO_ETIMEDOUT ||
+                exc.displayText() == "Timeout") {
+                // ignore timeout - caused by receive timeout
                 continue;
             }
-            std::cerr << "Error receiving message: " << exc.displayText() << exc.code()
-                      << exc.name() << std::endl;
-            _currentState = WebsocketState::DISCONNECTED;
-            _running = false;
-            break;
+            std::cerr << "Receive error: " << exc.code() << exc.what() << exc.displayText()
+                      << std::endl;
+            updateState(State::WS_ERROR, exc.displayText());
         }
     }
+    std::cout << "Recieve thread stopped" << std::endl;
 }
 
-void WSC::close() {
-    if (_websocket) {
-        try {
-            _websocket->shutdown();  // Forcefully shutdown connection
-        } catch (Poco::Exception &exc) {
-            std::cerr << "Error shutting down WebSocket: " << exc.displayText() << std::endl;
-        }
-    }
+void WSC::stopReceiveThread() {
+    if (!m_receiveThreadRunning) return;
+    m_receiveThreadRunning = false;
+}
 
-    if (_currentState == WebsocketState::CONNECTED) {
-        _currentState = WebsocketState::DISCONNECTED;
-        _running = false;
-        if (_receiveThread.joinable()) {
-            _receiveThread.join();
-        }
+// ================================= PING THREAD =================================
+
+void WSC::startPingThread() {
+    if (m_pingThreadRunning || m_config.autoPing == false) return;
+    if (m_pingThread && m_pingThread->joinable()) {
+        m_pingThread->join();
     }
-    if (_websocket) {
-        try {
-            _websocket->close();
-        } catch (Poco::Exception &exc) {
-            std::cerr << "Error closing WebSocket: " << exc.displayText() << std::endl;
+    std::cout << "Starting ping thread" << std::endl;
+    m_pingThreadRunning = true;
+    m_pingThread = std::make_unique<std::thread>(&WSC::pingLoop, this);
+}
+
+void WSC::pingLoop() {
+    while (m_pingThreadRunning) {
+        if (m_state == State::CONNECTED) {
+            if (!sendPing()) {
+                updateState(State::WS_ERROR, "Failed to send PING");
+                break;
+            }
+            if (m_pongNotReceivedCount > m_config.pongThreshold) {
+                std::cerr << "Pong not received. Disconnecting." << std::endl;
+                updateState(State::WS_ERROR, "Pong not received");
+                break;
+            }
         }
-        delete _websocket;
-        _websocket = nullptr;
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_config.pingInterval));
+    }
+    std::cout << "Ping thread stopped" << std::endl;
+}
+
+void WSC::stopPingThread() {
+    if (!m_pingThreadRunning) return;
+    m_pingThreadRunning = false;
+}
+
+// ================================== HELPER METHODS ==================================
+
+bool WSC::isValidFrameLength(int opcode, size_t length) {
+    if (opcode == MessageType::TEXT || opcode == MessageType::BINARY) {
+        return length > 0 || !isFinalFrame(opcode);
+    }
+    return true;
+}
+
+void WSC::parseURI(const std::string &url) {
+    std::string httpUrl = url;
+    // Remove ws:// or wss:// and add http:// or https:// for URI parsing
+    if (url.substr(0, 5) == "ws://") {
+        httpUrl = "http://" + url.substr(5);
+        m_isSecure = false;
+    } else if (url.substr(0, 6) == "wss://") {
+        httpUrl = "https://" + url.substr(6);
+        m_isSecure = true;
+    } else {
+        throw std::invalid_argument(
+            "Invalid WebSocket URL scheme. Must start with ws:// or wss://");
     }
 
     try {
-        if (_secureSession) {
-            delete _secureSession;
-            _secureSession = nullptr;
-        }
-    } catch (...) {
-        std::cerr << "Error closing WebSocket: " << std::endl;
-    }
+        Poco::URI uri(httpUrl);
+        m_scheme = uri.getScheme();
+        m_host = uri.getHost();
+        m_path = uri.getPathAndQuery();
+        m_port = uri.getPort();
 
-    if (_session) {
-        delete _session;
-        _session = nullptr;
+        if (m_path.empty()) {
+            m_path = "/";
+        }
+    } catch (const Poco::Exception &e) {
+        throw std::invalid_argument("Failed to parse URL: " + std::string(e.what()));
+    } catch (const std::exception &e) {
+        throw std::invalid_argument("Failed to parse URL: " + std::string(e.what()));
     }
 }
 
-WebsocketState WSC::getState() const { return _currentState; }
+void WSC::stopThreads() {
+    stopSendThread();
+    stopReceiveThread();
+    stopPingThread();
+}
 
-std::vector<Message> WSC::getMessages() {
-    std::lock_guard<std::mutex> lock(_messagesMutex);
-    return *_messages;
+void WSC::cleanupResources() {
+    std::cout << "Cleaning up WebSocket resources" << std::endl;
+
+    if (m_websocket) {
+        try {
+            if (m_state == State::CONNECTED) {
+                m_websocket->shutdown();
+                m_websocket->close();
+            }
+        } catch (Poco::Exception &exc) {
+            std::cerr << "Error shutting down WebSocket: " << exc.displayText() << std::endl;
+        }
+        m_websocket.reset();
+    }
+
+    m_session.reset();
+    m_secureSession.reset();
+    m_messageQueue.reset();
+}
+
+std::string WSC::stateToString(State state) const {
+    switch (state) {
+        case State::UNINITIALIZED:
+            return "UNINITIALIZED";
+        case State::CONNECTING:
+            return "CONNECTING";
+        case State::CONNECTED:
+            return "CONNECTED";
+        case State::DISCONNECTING:
+            return "DISCONNECTING";
+        case State::DISCONNECTED:
+            return "DISCONNECTED";
+        case State::WS_ERROR:
+            return "WS_ERROR";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+void WSC::updateState(State newState, std::string reason) {
+    if (getCurrentState() == newState) {
+        return;
+    }
+    std::cout << "State changed: " << stateToString(getCurrentState()) << " -> "
+              << stateToString(newState) << std::endl;
+    setState(newState);
+    if (m_stateChangeCallback) {
+        m_stateChangeCallback(stateToString(newState));
+    }
+    if (m_state == State::WS_ERROR || m_state == State::DISCONNECTING) {
+        stopThreads();
+        if (m_state == State::WS_ERROR && m_errorCallback) {
+            m_errorCallback(reason);
+        }
+        cleanupResources();
+        if (m_state == State::DISCONNECTING) {
+            updateState(State::DISCONNECTED);
+        }
+    }
 }

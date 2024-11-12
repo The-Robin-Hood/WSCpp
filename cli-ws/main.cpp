@@ -40,7 +40,8 @@ int main() {
                 wsc.reconnect();
             }
             if (i > 100) {
-                if (!wsc.sendText(std::string("close"))) {
+                message = "close";
+                if (!wsc.sendText(message)) {
                     std::cerr << "Failed to send message" << std::endl;
                 }
             }

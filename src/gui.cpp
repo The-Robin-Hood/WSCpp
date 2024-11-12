@@ -153,7 +153,21 @@ void GUI::renderStatusBar() {
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse |
                      ImGuiWindowFlags_NoMove);
 
-    ImGui::Text("Status: %s", "Connected");
+    WSC::State currentWSState =
+        m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
+    ImGui::Text("Status : ");
+    ImGui::SameLine();
+    if (currentWSState == WSC::State::UNINITIALIZED)
+        ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5f), "Uninitialized");
+    else if (currentWSState == WSC::State::CONNECTING)
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
+    else if (currentWSState == WSC::State::DISCONNECTING)
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Disconnecting");
+    else if (currentWSState == WSC::State::DISCONNECTED || currentWSState == WSC::State::WS_ERROR)
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
+    else if (currentWSState == WSC::State::CONNECTED)
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+
     ImGui::SameLine(ImGui::GetWindowWidth() - 80);
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 
@@ -161,8 +175,8 @@ void GUI::renderStatusBar() {
 }
 
 void GUI::renderMainWindow() {
-    WebsocketState current_ws_state =
-        m_websocket ? m_websocket->getState() : WebsocketState::UNINITIALIZED;
+    WSC::State currentWSState =
+        m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
 
     ImGui::SetNextWindowSize(
         ImVec2(ImGui::GetMainViewport()->Size.x, ImGui::GetMainViewport()->Size.y - 29.0f),
@@ -179,10 +193,10 @@ void GUI::renderMainWindow() {
     ImGui::InputTextWithHint("##Host", m_config.defaultHostHint.c_str(), &m_hostInput);
     ImGui::SameLine();
 
-    if (current_ws_state == WebsocketState::CONNECTED) {
+    if (currentWSState == WSC::State::CONNECTED) {
         if (ImGui::Button("Disconnect")) {
             try {
-                m_websocket->close();
+                m_websocket->disconnect();
             } catch (...) {
                 std::cerr << "Error closing WebSocket: " << std::endl;
             }
@@ -191,7 +205,22 @@ void GUI::renderMainWindow() {
         if (ImGui::Button("Connect")) {
             std::cout << "Connecting to " << m_hostInput << std::endl;
             try {
-                m_websocket = std::make_unique<WSC>(m_hostInput);
+                WSC::Config config;
+                config.autoPing = false;
+                m_websocket = std::make_unique<WSC>(m_hostInput,config);
+                m_allMessages = std::make_unique<MessageQueue>();
+                m_websocket->setDataMessageCallback([this](Message message) {
+                    message.type = MessageType::RECEIVED;
+                    std::cout << "Received message: " << message.getPayload() << std::endl;
+                    m_allMessages->push(message,true);
+                });
+                // m_websocket->setStateChangeCallback([this](WSC::State state) {
+                //     m_allMessages->push(Message{MessageType::RECEIVED, std::string("State changed to " +
+                //                                                     m_websocket->stateToString(state))});
+                // });
+                if (!m_websocket->connect()) {
+                    std::cerr << "Failed to connect to " << m_hostInput << std::endl;
+                }
             } catch (const std::exception &e) {
                 std::cerr << "Error: " << e.what() << std::endl;
             }
@@ -199,37 +228,24 @@ void GUI::renderMainWindow() {
     }
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
-    ImGui::Text("Status : ");
-    ImGui::SameLine();
-    if (current_ws_state == WebsocketState::UNINITIALIZED)
-        ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5f), "Uninitialized");
-    else if (current_ws_state == WebsocketState::CONNECTING)
-        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
-    else if (current_ws_state == WebsocketState::DISCONNECTED)
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
-    else if (current_ws_state == WebsocketState::CONNECTED)
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
-
-    ImGui::Dummy(ImVec2(0.0f, 5.0f));
-
     ImGui::BeginDisabled(m_websocket == nullptr ||
-                         m_websocket->getState() != WebsocketState::CONNECTED);
+                         m_websocket->getCurrentState() != WSC::State::CONNECTED);
     ImGui::Text("Messages:");
     ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250.0f), true);
-    if (m_websocket && m_websocket->getState() == WebsocketState::CONNECTED) {
-        auto messages = m_websocket->getMessages();
-        for (auto &message : messages) {
+    if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
+        auto messages = m_allMessages->getMessages();
+        for (const auto &message : messages) {
             std::string inputId = "m_messages";
             inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
-            std::string input = (message.type == Message::MessageType::SENT ? "⬆ [" : "⬇ [") +
-                                message.getFormattedTimestamp() + "] " + message.content;
+            std::string input = (message.type == MessageType::SENT ? "⬆ [" : "⬇ [") +
+                                message.getFormattedTimestamp() + "] " + message.getPayload();
             int lineCount = (int)std::count(input.begin(), input.end(), '\n') + 1;
             char *buffer = (char *)malloc(input.size() + 1);
             strcpy(buffer, input.c_str());
 
             ImGui::PushID(inputId.c_str());
             ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Text, message.type == Message::MessageType::SENT
+            ImGui::PushStyleColor(ImGuiCol_Text, message.type == MessageType::SENT
                                                      ? IM_COL32(255, 229, 163, 255)
                                                      : IM_COL32(255, 255, 255, 255));
             ImGui::InputTextMultiline(
@@ -258,11 +274,18 @@ void GUI::renderMainWindow() {
     if (ImGui::Button("Send") || send) {
         std::cout << "Sending message: " << m_sendMessageInput << std::endl;
         if (m_sendMessageInput.length() > 0) {
-            if (m_websocket && m_websocket->getState() == WebsocketState::CONNECTED) {
+            if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
                 std::cout << "Message sending" << std::endl;
 
-                m_websocket->sendMsg(m_sendMessageInput);
+                if(!m_websocket->sendText(m_sendMessageInput)){
+                    std::cerr << "Failed to send message" << std::endl;
+                }
+                std::cout<<"SENDING MESSAGE : "<<m_sendMessageInput<<std::endl;
+                m_allMessages->push(Message{MessageType::SENT, std::vector<unsigned char>(m_sendMessageInput.begin(), m_sendMessageInput.end())},true);
                 m_sendMessageInput.clear();
+                for (auto &message : m_allMessages->getMessages()) {
+                    std::cout << "Message: " << message.getPayload() << std::endl;
+                }
                 std::cout << "Message sent" << std::endl;
             }
         }

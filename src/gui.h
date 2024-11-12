@@ -4,10 +4,11 @@
 #endif
 
 #include <GLFW/glfw3.h>
-#include <ws.h>
 
 #include <memory>
 #include <string>
+
+#include "ws.h"
 
 class WSC;
 
@@ -93,6 +94,7 @@ class GUI {
     Config m_config;
     std::unique_ptr<GLFWwindow, WindowDeleter> m_window;
     std::unique_ptr<WSC> m_websocket;
+    std::unique_ptr<MessageQueue> m_allMessages; 
     std::string m_hostInput;
     std::string m_sendMessageInput;
 
@@ -105,5 +107,4 @@ class GUI {
     // ImGui rendering methods
     void renderMainWindow();
     void renderStatusBar();
-
 };
