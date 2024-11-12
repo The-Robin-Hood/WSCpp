@@ -63,7 +63,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
     ${OPENSSL_INCLUDE_DIR}
     poco/include
-    include/
+    ./
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

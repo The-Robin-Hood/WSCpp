@@ -5,14 +5,11 @@
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/HTTPSClientSession.h>
-#include "Poco/Net/SSLManager.h"
-#include "Poco/Net/Context.h"
-#include "Poco/Net/AcceptCertificateHandler.h"
 #include <Poco/Net/PrivateKeyPassphraseHandler.h>
 #include <Poco/Net/WebSocket.h>
 #include <Poco/URI.h>
-
 #include <message.h>
+
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -21,6 +18,10 @@
 #include <queue>
 #include <string>
 #include <thread>
+
+#include "Poco/Net/AcceptCertificateHandler.h"
+#include "Poco/Net/Context.h"
+#include "Poco/Net/SSLManager.h"
 
 using Poco::Net::HTTPClientSession;
 using Poco::Net::HTTPMessage;
@@ -31,12 +32,10 @@ using Poco::Net::WebSocket;
 
 class MessageQueue;
 
-class WSC
-{
-public:
+class WSC {
+   public:
     // Enums and Types
-    enum class State
-    {
+    enum class State {
         UNINITIALIZED,
         CONNECTING,
         CONNECTED,
@@ -46,8 +45,7 @@ public:
     };
 
     // Configuration structure
-    struct Config
-    {
+    struct Config {
         // Connection settings
         Poco::Timespan connectionTimeout;
         Poco::Timespan receiveTimeout;
@@ -55,10 +53,10 @@ public:
         std::chrono::milliseconds pingInterval;
 
         // Message settings
-        size_t receiveMaxPayloadSize;
-        size_t receiveBufferSize;
-        size_t sendBufferSize;
-        size_t sendChunkSize;
+        int receiveMaxPayloadSize;
+        int receiveBufferSize;
+        int sendBufferSize;
+        int sendChunkSize;
 
         // Retry settings
         bool autoReconnect;
@@ -82,28 +80,26 @@ public:
         int serverCrashContinuationFrame;
 
         Config()
-            : connectionTimeout(30, 0),                // 30 seconds
-              receiveTimeout(5, 0),                    // 5 seconds
-              sendTimeout(5, 0),                       // 5 seconds
-              pingInterval(5 * 1000),                  // 5 seconds
-              receiveMaxPayloadSize(16 * 1024 * 1024), // 16MB
-              receiveBufferSize(64 * 1024),            // 64KB
-              sendBufferSize(64 * 1024),               // 64KB
-              sendChunkSize(4096),                     // 4KB
+            : connectionTimeout(30, 0),                 // 30 seconds
+              receiveTimeout(5, 0),                     // 5 seconds
+              sendTimeout(5, 0),                        // 5 seconds
+              pingInterval(5 * 1000),                   // 5 seconds
+              receiveMaxPayloadSize(16 * 1024 * 1024),  // 16MB
+              receiveBufferSize(64 * 1024),             // 64KB
+              sendBufferSize(64 * 1024),                // 64KB
+              sendChunkSize(4096),                      // 4KB
               autoReconnect(true),
               maxRetryAttempts(3),
               retryDelay(3),
-              userAgent("WSC++ v1.0"),
-              autoPing(true),
-              pongThreshold(3),
-              serverCrashContinuationFrame(10),
               certificatePath(""),
               privateKeyPath(""),
               caLocation(""),
               cipherList("ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
-              verificationMode(5) // 0 - none, 1 - relaxed, 3 - strict, 5 - verifyOnce
-        {
-        }
+              verificationMode(5),  // 0 - none, 1 - relaxed, 3 - strict, 5 - verifyOnce
+              userAgent("WSC++ v1.0"),
+              autoPing(true),
+              pongThreshold(3),
+              serverCrashContinuationFrame(10) {}
     };
 
     // Construction/Destruction
@@ -128,7 +124,9 @@ public:
 
     // State management and information
     std::string stateToString(State state) const;
-    inline State getCurrentState() const noexcept { return m_state.load(std::memory_order_acquire); }
+    inline State getCurrentState() const noexcept {
+        return m_state.load(std::memory_order_acquire);
+    }
     inline void setState(State state) { m_state.store(state, std::memory_order_release); }
     inline bool isConnected() const noexcept { return getCurrentState() == State::CONNECTED; }
 
@@ -137,8 +135,7 @@ public:
     const Config &getConfig() const noexcept { return m_config; }
 
     // Statistics and diagnostics
-    struct Statistics
-    {
+    struct Statistics {
         uint64_t messagesSent{0};
         uint64_t messagesReceived{0};
         uint64_t bytesSent{0};
@@ -151,14 +148,14 @@ public:
 
     Statistics getStatistics() const;
 
-private:
+   private:
     // Internal state
-    Config m_config;
     std::atomic<State> m_state = State::UNINITIALIZED;
-    std::string m_scheme;
     std::string m_url;
+    std::string m_scheme;
     std::string m_host;
     std::string m_path;
+    Config m_config;
     uint16_t m_port = 80;
     bool m_isSecure = false;
     int m_serverCrashContinuationFrame = 0;
@@ -198,7 +195,8 @@ private:
     // Processing frames
     bool processFrame(const Poco::Buffer<char> &buffer, size_t length, int flags);
     bool handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_t length);
-    bool handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &buffer, size_t length);
+    bool handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &buffer,
+                         size_t length);
     void handleClose(uint16_t code, const std::string &reason);
 
     // Statistics
@@ -216,7 +214,9 @@ private:
 
     // Retry handling
     std::atomic<int> m_retryCount = 0;
-    bool shouldRetry() const noexcept { return m_config.autoReconnect && m_retryCount < m_config.maxRetryAttempts; }
+    bool shouldRetry() const noexcept {
+        return m_config.autoReconnect && m_retryCount < m_config.maxRetryAttempts;
+    }
     void resetRetryCount() noexcept { m_retryCount = 0; }
     void incrementRetryCount() noexcept { m_retryCount++; }
 
