@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <queue>
@@ -36,6 +37,20 @@ struct Message {
     std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::now();
     uint16_t closeCode{0};
     std::string closeReason = "";
+    std::string getPayload() const { return std::string(payload.begin(), payload.end()); }
+    std::string getFormattedTimestamp() const {
+        auto time = std::chrono::system_clock::to_time_t(timestamp);
+        std::tm localTimeBuffer;
+#ifdef _WIN32
+        localtime_s(&localTimeBuffer, &time);
+        std::tm *localTime = &localTimeBuffer;
+#else
+        std::tm *localTime = localtime_r(&time, &localTimeBuffer);
+#endif
+        std::stringstream ss;
+        ss << std::put_time(localTime, "%Y-%m-%d %H:%M:%S");
+        return ss.str();
+    }
 };
 
 class MessageQueue {

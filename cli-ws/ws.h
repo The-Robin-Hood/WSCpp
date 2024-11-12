@@ -8,7 +8,6 @@
 #include <Poco/Net/PrivateKeyPassphraseHandler.h>
 #include <Poco/Net/WebSocket.h>
 #include <Poco/URI.h>
-#include <message.h>
 
 #include <atomic>
 #include <chrono>
@@ -22,6 +21,7 @@
 #include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/SSLManager.h"
+#include "message.h"
 
 using Poco::Net::HTTPClientSession;
 using Poco::Net::HTTPMessage;
@@ -102,6 +102,12 @@ class WSC {
               serverCrashContinuationFrame(10) {}
     };
 
+    // callbacks
+    using ControlMessageCallback = std::function<void(const Message &message)>;
+    using DataMessageCallback = std::function<void(const Message &message)>;
+    using StateChangeCallback = std::function<void(const std::string &state)>;
+    using ErrorCallback = std::function<void(const std::string &message)>;
+
     // Construction/Destruction
     explicit WSC(const std::string &url, const Config &config = Config{});
     ~WSC();
@@ -122,13 +128,21 @@ class WSC {
     bool sendText(std::string &message);
     bool sendBinary(const std::vector<uint8_t> &data);
 
+    // set callbacks
+    void setControlMessageCallback(ControlMessageCallback callback) {
+        m_controlMessageCallback = callback;
+    }
+    void setDataMessageCallback(DataMessageCallback callback) { m_dataMessageCallback = callback; }
+    void setStateChangeCallback(StateChangeCallback callback) { m_stateChangeCallback = callback; }
+    void setErrorCallback(ErrorCallback callback) { m_errorCallback = callback; }
+
     // State management and information
-    std::string stateToString(State state) const;
     inline State getCurrentState() const noexcept {
         return m_state.load(std::memory_order_acquire);
     }
     inline void setState(State state) { m_state.store(state, std::memory_order_release); }
     inline bool isConnected() const noexcept { return getCurrentState() == State::CONNECTED; }
+    std::string stateToString(State state) const;
 
     // Configuration
     void setConfig(const Config &config) noexcept { m_config = config; }
@@ -161,7 +175,7 @@ class WSC {
     int m_serverCrashContinuationFrame = 0;
 
     // State management
-    void updateState(State newState);
+    void updateState(State newState, std::string reason = "");
     void updateStatistics(bool sent, size_t bytes);
 
     // Connection handling
@@ -188,9 +202,14 @@ class WSC {
     void stopPingThread();
     void pingLoop();
 
+    // Callbacks
+    ControlMessageCallback m_controlMessageCallback;
+    DataMessageCallback m_dataMessageCallback;
+    StateChangeCallback m_stateChangeCallback;
+    ErrorCallback m_errorCallback;
+
     // Message handling
     std::unique_ptr<MessageQueue> m_messageQueue;
-    std::unique_ptr<Poco::Buffer<char>> m_receiveBuffer;
 
     // Processing frames
     bool processFrame(const Poco::Buffer<char> &buffer, size_t length, int flags);
