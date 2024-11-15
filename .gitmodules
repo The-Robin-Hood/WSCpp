@@ -8,3 +8,7 @@
 	path = thirdparty/poco
 	url = https://github.com/pocoproject/poco.git
 	branch = poco-1.13.2
+[submodule "thirdparty/spdlog"]
+	path = thirdparty/spdlog
+	url = https://github.com/gabime/spdlog.git
+	branch = v1.15.0
