@@ -7,25 +7,25 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_stdlib.h"
+#include "logger.h"
 #include "stb_image.h"
-#include "logger.h" 
 
-GUI::~GUI() { 
+GUI::~GUI() {
     m_allMessages.reset();
-    WSCLog(debug,"Destroying GUI");
+    WSCLog(debug, "Destroying GUI");
 }
 
 bool GUI::init() {
     if (!glfwInit()) {
-        WSCLog(error,"Failed to initialize GLFW");
+        WSCLog(error, "Failed to initialize GLFW");
         return false;
     }
     if (!initWindow()) {
-        WSCLog(error,"Failed to initialize window");
+        WSCLog(error, "Failed to initialize window");
         return false;
     }
     if (!initImGui()) {
-        WSCLog(error,"Failed to initialize ImGui");
+        WSCLog(error, "Failed to initialize ImGui");
         return false;
     }
     return true;
@@ -54,11 +54,11 @@ bool GUI::initWindow() {
         glfwCreateWindow(m_config.width, m_config.height, m_config.title.c_str(), NULL, NULL));
     if (!m_window) {
         glfwTerminate();
-        WSCLog(error,"Failed to create window");
+        WSCLog(error, "Failed to create window");
         return false;
     }
     if (!setWindowIcon()) {
-        WSCLog(error,"Failed to set window icon");
+        WSCLog(error, "Failed to set window icon");
         return false;
     }
     glfwMakeContextCurrent(getWindow());
@@ -70,7 +70,7 @@ bool GUI::initImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     if (ImGui::GetCurrentContext() == nullptr) {
-        WSCLog(error,"Failed to create ImGui context");
+        WSCLog(error, "Failed to create ImGui context");
         return false;
     }
 
@@ -79,7 +79,7 @@ bool GUI::initImGui() {
     ImGui::StyleColorsClassic();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(getWindow(), true)) {
-        WSCLog(error,"Failed to initialize ImGui for OpenGL-GLFW");
+        WSCLog(error, "Failed to initialize ImGui for OpenGL-GLFW");
         return false;
     }
 
@@ -96,14 +96,14 @@ bool GUI::initImGui() {
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
     for (const auto &font : m_config.fonts) {
-        std::string fontPath = "assets/fonts/"+font;
+        std::string fontPath = "assets/fonts/" + font;
         if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
-            WSCLog(error,"Failed to load font: " + fontPath);
+            WSCLog(error, "Failed to load font: " + fontPath);
             return false;
         }
     }
     if (!m_io.Fonts->Build()) {
-        WSCLog(error,"Failed to build fonts");
+        WSCLog(error, "Failed to build fonts");
         return false;
     }
     m_io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_DockingEnable;
@@ -111,7 +111,7 @@ bool GUI::initImGui() {
 }
 
 void GUI::cleanupImGui() {
-    WSCLog(debug,"Cleaning up ImGui");
+    WSCLog(debug, "Cleaning up ImGui");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -204,36 +204,43 @@ void GUI::renderMainWindow() {
             try {
                 m_websocket->disconnect();
             } catch (...) {
-                WSCLog(error,"Failed to disconnect websocket");
+                WSCLog(error, "Failed to disconnect websocket");
             }
         }
     } else {
         if (ImGui::Button("Connect")) {
-            WSCLog(info,"Connect Button Pressed");
+            WSCLog(info, "Connect Button Pressed");
             try {
                 WSC::Config config;
-                config.autoPing = false;
-                m_websocket = std::make_unique<WSC>(m_hostInput,config);
-                m_allMessages = std::make_unique<MessageQueue>();
-                m_websocket->setDataMessageCallback([this](Message message) {
-                    message.type = MessageType::RECEIVED;
-                    if(m_allMessages != nullptr){
-                        WSCLog(debug,"Received message: " + message.getPayload());
-                        m_allMessages->push(message,true);
-                    }
-                });
-                m_websocket->setStateChangeCallback([this](const std::string &state) {
-                    std::string stateMessage = "State changed to " + state;
-                    if(m_allMessages != nullptr){
-                        WSCLog(debug,"State changed to " + state);
-                        m_allMessages->push(Message{MessageType::RECEIVED, std::vector<unsigned char>(stateMessage.begin(), stateMessage.end())},true);
-                    }
-                });
+                WSCLog(debug, "Setting up websocket configuration");
+                // m_allMessages->clear();
+                if (m_websocket == nullptr) {
+                    m_websocket = std::make_unique<WSC>(m_hostInput, config);
+                    m_allMessages = std::make_unique<MessageQueue>();
+                    m_websocket->setDataMessageCallback([this](Message message) {
+                        message.type = MessageType::RECEIVED;
+                        if (m_allMessages != nullptr) {
+                            WSCLog(debug, "Received message: " + message.getPayload());
+                            m_allMessages->push(message, true);
+                        }
+                    });
+                    m_websocket->setStateChangeCallback([this](const std::string &state) {
+                        std::string stateMessage = "State changed to " + state;
+                        if (m_allMessages != nullptr) {
+                            WSCLog(debug, "State changed to " + state);
+                            m_allMessages->push(
+                                Message{MessageType::RECEIVED,
+                                        std::vector<unsigned char>(stateMessage.begin(),
+                                                                   stateMessage.end())},
+                                true);
+                        }
+                    });
+                }
                 if (!m_websocket->connect()) {
-                    WSCLog(error,"Failed to connect to " + m_hostInput);
+                    WSCLog(error, "Failed to connect to " + m_hostInput);
                 }
             } catch (const std::exception &e) {
-                WSCLog(error,"Failed to connect to " + m_hostInput + ": " + e.what());
+                WSCLog(error, "Failed to connect to " + m_hostInput + ": " + e.what());
             }
         }
     }
@@ -244,7 +251,7 @@ void GUI::renderMainWindow() {
     ImGui::Text("Messages:");
     ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250.0f), true);
     if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
-        auto messages = m_allMessages->getMessages();
+        auto messages = m_allMessages->getVector();
         for (const auto &message : messages) {
             std::string inputId = "m_messages";
             inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
@@ -283,13 +290,16 @@ void GUI::renderMainWindow() {
         ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     if (ImGui::Button("Send") || send) {
-        WSCLog(info,"Send Button Pressed");
+        WSCLog(info, "Send Button Pressed");
         if (m_sendMessageInput.length() > 0) {
             if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
-                if(!m_websocket->sendText(m_sendMessageInput)){
-                    WSCLog(error,"Failed to send message");
+                if (!m_websocket->sendText(m_sendMessageInput)) {
+                    WSCLog(error, "Failed to send message");
                 }
-                m_allMessages->push(Message{MessageType::SENT, std::vector<unsigned char>(m_sendMessageInput.begin(), m_sendMessageInput.end())},true);
+                m_allMessages->push(Message{MessageType::SENT,
+                                            std::vector<unsigned char>(m_sendMessageInput.begin(),
+                                                                       m_sendMessageInput.end())},
+                                    true);
                 m_sendMessageInput.clear();
             }
         }
