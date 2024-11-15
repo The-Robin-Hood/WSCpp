@@ -8,18 +8,24 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_stdlib.h"
 #include "stb_image.h"
+#include "logger.h" 
+
+GUI::~GUI() { 
+    m_allMessages.reset();
+    WSCLog(debug,"Destroying GUI");
+}
 
 bool GUI::init() {
     if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+        WSCLog(error,"Failed to initialize GLFW");
         return false;
     }
     if (!initWindow()) {
-        std::cerr << "Failed to initialize window" << std::endl;
+        WSCLog(error,"Failed to initialize window");
         return false;
     }
     if (!initImGui()) {
-        std::cerr << "Failed to initialize ImGui" << std::endl;
+        WSCLog(error,"Failed to initialize ImGui");
         return false;
     }
     return true;
@@ -48,11 +54,11 @@ bool GUI::initWindow() {
         glfwCreateWindow(m_config.width, m_config.height, m_config.title.c_str(), NULL, NULL));
     if (!m_window) {
         glfwTerminate();
-        std::cerr << "Failed to create window" << std::endl;
+        WSCLog(error,"Failed to create window");
         return false;
     }
     if (!setWindowIcon()) {
-        std::cerr << "Failed to set window icon" << std::endl;
+        WSCLog(error,"Failed to set window icon");
         return false;
     }
     glfwMakeContextCurrent(getWindow());
@@ -64,7 +70,7 @@ bool GUI::initImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     if (ImGui::GetCurrentContext() == nullptr) {
-        std::cerr << "Error: Failed to create ImGui context!" << std::endl;
+        WSCLog(error,"Failed to create ImGui context");
         return false;
     }
 
@@ -73,7 +79,7 @@ bool GUI::initImGui() {
     ImGui::StyleColorsClassic();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(getWindow(), true)) {
-        std::cerr << "Failed to initialize ImGui for GLFW" << std::endl;
+        WSCLog(error,"Failed to initialize ImGui for OpenGL-GLFW");
         return false;
     }
 
@@ -92,12 +98,12 @@ bool GUI::initImGui() {
     for (const auto &font : m_config.fonts) {
         std::string fontPath = "assets/fonts/"+font;
         if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
-            std::cerr << "Error: Failed to load font: " << fontPath << std::endl;
+            WSCLog(error,"Failed to load font: " + fontPath);
             return false;
         }
     }
     if (!m_io.Fonts->Build()) {
-        std::cerr << "Error: Failed to build fonts!" << std::endl;
+        WSCLog(error,"Failed to build fonts");
         return false;
     }
     m_io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_DockingEnable;
@@ -105,7 +111,7 @@ bool GUI::initImGui() {
 }
 
 void GUI::cleanupImGui() {
-    std::cout << "Cleaning up ImGui" << std::endl;
+    WSCLog(debug,"Cleaning up ImGui");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -198,12 +204,12 @@ void GUI::renderMainWindow() {
             try {
                 m_websocket->disconnect();
             } catch (...) {
-                std::cerr << "Error closing WebSocket: " << std::endl;
+                WSCLog(error,"Failed to disconnect websocket");
             }
         }
     } else {
         if (ImGui::Button("Connect")) {
-            std::cout << "Connecting to " << m_hostInput << std::endl;
+            WSCLog(info,"Connect Button Pressed");
             try {
                 WSC::Config config;
                 config.autoPing = false;
@@ -211,18 +217,23 @@ void GUI::renderMainWindow() {
                 m_allMessages = std::make_unique<MessageQueue>();
                 m_websocket->setDataMessageCallback([this](Message message) {
                     message.type = MessageType::RECEIVED;
-                    std::cout << "Received message: " << message.getPayload() << std::endl;
-                    m_allMessages->push(message,true);
+                    if(m_allMessages != nullptr){
+                        WSCLog(debug,"Received message: " + message.getPayload());
+                        m_allMessages->push(message,true);
+                    }
                 });
-                // m_websocket->setStateChangeCallback([this](WSC::State state) {
-                //     m_allMessages->push(Message{MessageType::RECEIVED, std::string("State changed to " +
-                //                                                     m_websocket->stateToString(state))});
-                // });
+                m_websocket->setStateChangeCallback([this](const std::string &state) {
+                    std::string stateMessage = "State changed to " + state;
+                    if(m_allMessages != nullptr){
+                        WSCLog(debug,"State changed to " + state);
+                        m_allMessages->push(Message{MessageType::RECEIVED, std::vector<unsigned char>(stateMessage.begin(), stateMessage.end())},true);
+                    }
+                });
                 if (!m_websocket->connect()) {
-                    std::cerr << "Failed to connect to " << m_hostInput << std::endl;
+                    WSCLog(error,"Failed to connect to " + m_hostInput);
                 }
             } catch (const std::exception &e) {
-                std::cerr << "Error: " << e.what() << std::endl;
+                WSCLog(error,"Failed to connect to " + m_hostInput + ": " + e.what());
             }
         }
     }
@@ -272,21 +283,14 @@ void GUI::renderMainWindow() {
         ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     if (ImGui::Button("Send") || send) {
-        std::cout << "Sending message: " << m_sendMessageInput << std::endl;
+        WSCLog(info,"Send Button Pressed");
         if (m_sendMessageInput.length() > 0) {
             if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
-                std::cout << "Message sending" << std::endl;
-
                 if(!m_websocket->sendText(m_sendMessageInput)){
-                    std::cerr << "Failed to send message" << std::endl;
+                    WSCLog(error,"Failed to send message");
                 }
-                std::cout<<"SENDING MESSAGE : "<<m_sendMessageInput<<std::endl;
                 m_allMessages->push(Message{MessageType::SENT, std::vector<unsigned char>(m_sendMessageInput.begin(), m_sendMessageInput.end())},true);
                 m_sendMessageInput.clear();
-                for (auto &message : m_allMessages->getMessages()) {
-                    std::cout << "Message: " << message.getPayload() << std::endl;
-                }
-                std::cout << "Message sent" << std::endl;
             }
         }
         focusOnInput = true;

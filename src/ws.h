@@ -21,6 +21,7 @@
 #include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/SSLManager.h"
+#include "logger.h"
 #include "message.h"
 
 using Poco::Net::HTTPClientSession;

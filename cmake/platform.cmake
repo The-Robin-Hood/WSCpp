@@ -4,7 +4,7 @@ function(configure_platform_specific_linking TARGET)
         target_link_libraries(${TARGET} PRIVATE
             OpenSSL::SSL OpenSSL::Crypto
             Poco::Foundation Poco::Net Poco::NetSSL Poco::Crypto
-            glfw opengl32 freetype
+            glfw opengl32 freetype spdlog::spdlog
         )
 
         file(GLOB OPENSSL_DLLS "${OPENSSL_ROOT_DIR}/*.dll")
@@ -21,7 +21,7 @@ function(configure_platform_specific_linking TARGET)
         target_link_libraries(${TARGET} PRIVATE
             OpenSSL::SSL OpenSSL::Crypto
             Poco::Foundation Poco::Net Poco::NetSSL Poco::Crypto
-            glfw freetype "-framework OpenGL"
+            glfw freetype "-framework OpenGL" spdlog::spdlog
         )
     else()
         log_status("Configuring Linux-specific linking")
@@ -29,7 +29,7 @@ function(configure_platform_specific_linking TARGET)
         target_link_libraries(${TARGET} PRIVATE
             OpenSSL::SSL OpenSSL::Crypto
             Poco::Foundation Poco::Net Poco::NetSSL Poco::Crypto
-            glfw freetype OpenGL::GL
+            glfw freetype OpenGL::GL spdlog::spdlog
         )
     endif()
 endfunction()

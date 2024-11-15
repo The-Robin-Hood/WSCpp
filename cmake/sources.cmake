@@ -25,6 +25,7 @@ function(configure_target_includes TARGET)
         thirdparty/imgui/include
         thirdparty/glfw/include
         thirdparty/freetype/include
+        thirdparty/spdlog/include
         thirdparty/others/include
         src/
     )

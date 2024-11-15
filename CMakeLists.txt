@@ -31,6 +31,7 @@ configure_glfw()
 add_subdirectory(thirdparty/poco)
 add_subdirectory(thirdparty/glfw)
 add_subdirectory(thirdparty/freetype)
+add_subdirectory(thirdparty/spdlog)
 
 # Create executable
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${IMGUI_SOURCES})
