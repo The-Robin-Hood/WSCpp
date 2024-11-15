@@ -31,7 +31,14 @@ using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPSClientSession;
 using Poco::Net::WebSocket;
 
-class MessageQueue;
+struct Command {
+    std::string command;
+    std::string message = "";
+    std::string reason = "";
+};
+
+using MessageQueue = WSCQueue<Message>;
+using CommandQueue = WSCQueue<Command>;
 
 class WSC {
    public:
@@ -89,7 +96,7 @@ class WSC {
               receiveBufferSize(64 * 1024),             // 64KB
               sendBufferSize(64 * 1024),                // 64KB
               sendChunkSize(4096),                      // 4KB
-              autoReconnect(true),
+              autoReconnect(false),
               maxRetryAttempts(3),
               retryDelay(3),
               certificatePath(""),
@@ -121,7 +128,7 @@ class WSC {
 
     // Public interface
     bool connect();
-    void disconnect(uint16_t code = 1000, const std::string &reason = "Normal closure");
+    bool disconnect();
     bool reconnect();
 
     // Sending methods
@@ -185,13 +192,21 @@ class WSC {
     std::unique_ptr<Poco::Net::HTTPSClientSession> m_secureSession;
 
     // Threading and its management
+    bool m_WSCommandThreadRunning = false;
     bool m_sendThreadRunning = false;
     bool m_receiveThreadRunning = false;
     bool m_pingThreadRunning = false;
     int m_pongNotReceivedCount = 0;
+    std::unique_ptr<std::thread> m_WSCommandThread;
     std::unique_ptr<std::thread> m_sendThread;
     std::unique_ptr<std::thread> m_receiveThread;
     std::unique_ptr<std::thread> m_pingThread;
+    std::mutex m_pingMutex;
+    std::condition_variable m_pingCondVar;
+
+    void startWSCommandThread();
+    void stopWSCommandThread();
+    void wsCommandLoop();
 
     void startSendThread();
     void stopSendThread();
@@ -211,6 +226,7 @@ class WSC {
 
     // Message handling
     std::unique_ptr<MessageQueue> m_messageQueue;
+    std::unique_ptr<CommandQueue> m_commandQueue;
 
     // Processing frames
     bool processFrame(const Poco::Buffer<char> &buffer, size_t length, int flags);
@@ -224,10 +240,13 @@ class WSC {
     Statistics m_stats;
 
     // Utility methods
+    bool establishWebsocketConnection(); 
+    void terminateWebsocketConnection(uint16_t code = 1000, const std::string &reason = "Normal closure");
+    void sendFrame(const void *buffer, size_t length, int flags);
+
     void parseURI(const std::string &url);
     void stopThreads();
     void cleanupResources();
-    bool sendFrame(const void *buffer, size_t length, int flags);
     int getOpcode(int flags) { return flags & MessageType::OPCODE_MASK; }
     bool isFinalFrame(int flags) { return (flags & MessageType::FIN) != 0; }
     bool isValidFrameLength(int opcode, size_t length);
