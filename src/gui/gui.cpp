@@ -1,14 +1,4 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include "gui.h"
-
-#include "imgui.h"
-#include "imgui_custom.h"
-#include "imgui_freetype.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_stdlib.h"
-#include "logger.h"
-#include "stb_image.h"
 
 GUI::~GUI() {
     m_allMessages.reset();
@@ -217,8 +207,8 @@ void GUI::renderMainWindow() {
                 if (m_websocket == nullptr) {
                     m_websocket = std::make_unique<WSC>(m_hostInput, config);
                     m_allMessages = std::make_unique<MessageQueue>();
-                    m_websocket->setDataMessageCallback([this](Message message) {
-                        message.type = MessageType::RECEIVED;
+                    m_websocket->setDataMessageCallback([this](WSCMessage message) {
+                        message.type = WSCMessageType::RECEIVED;
                         if (m_allMessages != nullptr) {
                             WSCLog(debug, "Received message: " + message.getPayload());
                             m_allMessages->push(message, true);
@@ -229,7 +219,7 @@ void GUI::renderMainWindow() {
                         if (m_allMessages != nullptr) {
                             WSCLog(debug, "State changed to " + state);
                             m_allMessages->push(
-                                Message{MessageType::RECEIVED,
+                                WSCMessage{WSCMessageType::RECEIVED,
                                         std::vector<unsigned char>(stateMessage.begin(),
                                                                    stateMessage.end())},
                                 true);
@@ -255,7 +245,7 @@ void GUI::renderMainWindow() {
         for (const auto &message : messages) {
             std::string inputId = "m_messages";
             inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
-            std::string input = (message.type == MessageType::SENT ? "⬆ [" : "⬇ [") +
+            std::string input = (message.type == WSCMessageType::SENT ? "⬆ [" : "⬇ [") +
                                 message.getFormattedTimestamp() + "] " + message.getPayload();
             int lineCount = (int)std::count(input.begin(), input.end(), '\n') + 1;
             char *buffer = (char *)malloc(input.size() + 1);
@@ -263,7 +253,7 @@ void GUI::renderMainWindow() {
 
             ImGui::PushID(inputId.c_str());
             ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Text, message.type == MessageType::SENT
+            ImGui::PushStyleColor(ImGuiCol_Text, message.type == WSCMessageType::SENT
                                                      ? IM_COL32(255, 229, 163, 255)
                                                      : IM_COL32(255, 255, 255, 255));
             ImGui::InputTextMultiline(
@@ -296,7 +286,7 @@ void GUI::renderMainWindow() {
                 if (!m_websocket->sendText(m_sendMessageInput)) {
                     WSCLog(error, "Failed to send message");
                 }
-                m_allMessages->push(Message{MessageType::SENT,
+                m_allMessages->push(WSCMessage{WSCMessageType::SENT,
                                             std::vector<unsigned char>(m_sendMessageInput.begin(),
                                                                        m_sendMessageInput.end())},
                                     true);

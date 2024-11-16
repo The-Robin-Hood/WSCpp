@@ -64,13 +64,13 @@ bool WSC::sendPing() {
 bool WSC::sendText(std::string &message) {
     if (m_state != State::CONNECTED) return false;
     std::vector<unsigned char> payload(message.begin(), message.end());
-    m_messageQueue->push(Message{MessageType::TEXT, payload});
+    m_messageQueue->push(WSCMessage{WSCMessageType::TEXT, payload});
     return true;
 }
 
 bool WSC::sendBinary(const std::vector<uint8_t> &data) {
     if (m_state != State::CONNECTED) return false;
-    m_messageQueue->push(Message{MessageType::BINARY, data});
+    m_messageQueue->push(WSCMessage{WSCMessageType::BINARY, data});
     return true;
 }
 
@@ -99,7 +99,7 @@ void WSC::wsCommandLoop() {
                 updateState(State::DISCONNECTING);
             } else if (command.command == "ping") {
                 if (m_state == State::CONNECTED) {
-                    sendFrame(nullptr, 0, MessageType::PING);
+                    sendFrame(nullptr, 0, WSCMessageType::PING);
                     WSCLog(debug, "PING sent");
                 }
             } else if (command.command == "error") {
@@ -140,9 +140,9 @@ void WSC::startSendThread() {
 void WSC::sendLoop() {
     while (m_sendThreadRunning) {
         try {
-            Message m_message;
+            WSCMessage m_message;
             m_messageQueue->try_pop(m_message);
-            if (m_message.type != MessageType::UNINITIALIZED && m_state == State::CONNECTED) {
+            if (m_message.type != WSCMessageType::UNINITIALIZED && m_state == State::CONNECTED) {
                 sendFrame(m_message.payload.data(), m_message.payload.size(), m_message.type);
             }
         } catch (const std::exception &e) {
@@ -174,32 +174,32 @@ void WSC::startReceiveThread() {
 
 bool WSC::handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_t length) {
     switch (opcode) {
-        case MessageType::PING: {
+        case WSCMessageType::PING: {
             WSCLog(info, "PING Received");
             std::string payload = "PING " + std::string(buffer.begin(), buffer.end());
             if (m_controlMessageCallback) {
-                m_controlMessageCallback(Message{
-                    MessageType::PING, std::vector<uint8_t>(payload.begin(), payload.end())});
+                m_controlMessageCallback(WSCMessage{
+                    WSCMessageType::PING, std::vector<uint8_t>(payload.begin(), payload.end())});
             }
             if (m_config.autoPong) {
-                sendFrame(buffer.begin(), length, MessageType::PONG);
+                sendFrame(buffer.begin(), length, WSCMessageType::PONG);
                 WSCLog(debug, "PONG sent");
             }
             return true;
         }
 
-        case MessageType::PONG: {
+        case WSCMessageType::PONG: {
             WSCLog(info, "PONG Received");
             std::string payload = "PONG " + std::string(buffer.begin(), buffer.end());
             if (m_controlMessageCallback) {
-                m_controlMessageCallback(Message{
-                    MessageType::PONG, std::vector<uint8_t>(payload.begin(), payload.end())});
+                m_controlMessageCallback(WSCMessage{
+                    WSCMessageType::PONG, std::vector<uint8_t>(payload.begin(), payload.end())});
             }
             m_pongNotReceivedCount = 0;
             return true;
         }
 
-        case MessageType::CLOSE: {
+        case WSCMessageType::CLOSE: {
             WSCLog(info, "CLOSE Received");
             if (length < 2) {
                 WSCLog(error, "Invalid CLOSE frame received");
@@ -223,8 +223,8 @@ bool WSC::handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &bu
     if (!isFinal) {
         WSCLog(debug, "Recieving Continuation Frame");
     }
-    if (opcode <= MessageType::BINARY) {
-        if (opcode == MessageType::CONTINUATION) {
+    if (opcode <= WSCMessageType::BINARY) {
+        if (opcode == WSCMessageType::CONTINUATION) {
             if (m_serverCrashContinuationFrame > m_config.serverCrashContinuationFrame) {
                 return false;
             }
@@ -232,7 +232,7 @@ bool WSC::handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &bu
             return true;
         }
         if (m_dataMessageCallback) {
-            m_dataMessageCallback(Message{static_cast<MessageType>(opcode),
+            m_dataMessageCallback(WSCMessage{static_cast<WSCMessageType>(opcode),
                                           std::vector<uint8_t>(buffer.begin(), buffer.end())});
         }
         m_serverCrashContinuationFrame = 0;
@@ -253,8 +253,8 @@ void WSC::handleClose(uint16_t code, const std::string &reason) {
     }
     std::string closePayload = std::to_string(code) + " - " + reason;
     if (m_controlMessageCallback) {
-        m_controlMessageCallback(Message{
-            MessageType::CLOSE, std::vector<uint8_t>(closePayload.begin(), closePayload.end())});
+        m_controlMessageCallback(WSCMessage{
+            WSCMessageType::CLOSE, std::vector<uint8_t>(closePayload.begin(), closePayload.end())});
     }
     m_commandQueue->push(Command{"serverClose"});
     m_receiveThreadRunning = false;
@@ -284,7 +284,7 @@ bool WSC::processFrame(const Poco::Buffer<char> &buffer, size_t length, int flag
                std::to_string(length));
 
     // Handle control frames (PING, PONG, CLOSE)
-    if (opcode >= MessageType::CLOSE) {
+    if (opcode >= WSCMessageType::CLOSE) {
         return handleControlFrame(opcode, buffer, length);
     }
 
@@ -348,7 +348,7 @@ void WSC::pingLoop() {
     while (m_pingThreadRunning) {
         std::unique_lock<std::mutex> lock(m_pingMutex);
         if (m_state == State::CONNECTED) {
-            sendFrame(nullptr, 0, MessageType::PING);
+            sendFrame(nullptr, 0, WSCMessageType::PING);
             if (m_pongNotReceivedCount > m_config.pongThreshold) {
                 m_commandQueue->push(Command{
                     "error",
@@ -462,7 +462,7 @@ void WSC::terminateWebsocketConnection(uint16_t code, const std::string &reason)
     payload.push_back(static_cast<unsigned char>((code >> 8) & 0xFF));
     payload.push_back(static_cast<unsigned char>(code & 0xFF));
     payload.insert(payload.end(), reason.begin(), reason.end());
-    sendFrame(payload.data(), payload.size(), MessageType::CLOSE);
+    sendFrame(payload.data(), payload.size(), WSCMessageType::CLOSE);
 }
 
 void WSC::sendFrame(const void *buffer, size_t length, int flags) {
@@ -474,10 +474,10 @@ void WSC::sendFrame(const void *buffer, size_t length, int flags) {
             bool firstFrame = true;
             while (totalBytesSent < len) {
                 if (!firstFrame) {
-                    flags = MessageType::CONTINUATION;
+                    flags = WSCMessageType::CONTINUATION;
                 }
                 if (totalBytesSent + m_config.sendChunkSize >= len) {
-                    flags |= MessageType::FIN;
+                    flags |= WSCMessageType::FIN;
                 }
                 int bytesToSend = std::min<int>(m_config.sendChunkSize, len - totalBytesSent);
                 int sent = m_websocket->sendFrame(
@@ -491,7 +491,7 @@ void WSC::sendFrame(const void *buffer, size_t length, int flags) {
                 totalBytesSent += sent;
             }
         } else {
-            flags |= MessageType::FIN;
+            flags |= WSCMessageType::FIN;
             totalBytesSent = m_websocket->sendFrame(buffer, len, flags);
         }
         if (totalBytesSent < 0 || totalBytesSent != len) {
@@ -505,7 +505,7 @@ void WSC::sendFrame(const void *buffer, size_t length, int flags) {
 }
 
 bool WSC::isValidFrameLength(int opcode, size_t length) {
-    if (opcode == MessageType::TEXT || opcode == MessageType::BINARY) {
+    if (opcode == WSCMessageType::TEXT || opcode == WSCMessageType::BINARY) {
         return length > 0 || !isFinalFrame(opcode);
     }
     return true;

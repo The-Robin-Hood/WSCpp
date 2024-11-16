@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
-project(WSCpp 
+project(WSCpp
     VERSION 1.0.0
     DESCRIPTION "WebSocket Client GUI Application in C++"
     LANGUAGES CXX
@@ -8,19 +8,12 @@ project(WSCpp
 # Initialize CMake modules
 include(cmake/utils.cmake)
 include(cmake/dependencies.cmake)
-include(cmake/platform.cmake)
 include(cmake/sources.cmake)
+
+# Set up CMake configurations
+setup_cmake_configs()
+setup_compiler_options()
 setup_console_colors()
-
-# Project configuration
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
-
-if(APPLE)
-    enable_language(OBJCXX)
-endif()
 
 # Configure dependencies
 configure_openssl()
@@ -33,12 +26,19 @@ add_subdirectory(thirdparty/glfw)
 add_subdirectory(thirdparty/freetype)
 add_subdirectory(thirdparty/spdlog)
 
-# Create executable
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${IMGUI_SOURCES})
-set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+add_library(WS STATIC ${WS_SOURCES})
+target_include_directories(WS PUBLIC ${COMMON_INCLUDES} ${WS_INCLUDES})
+target_link_libraries(WS PUBLIC ${COMMON_LIBS} ${WS_LIBS})
+configure_target_compiler_options(WS)
 
-# Configure the target
-configure_compiler_options(${PROJECT_NAME})
-configure_target_includes(${PROJECT_NAME})
-configure_platform_specific_linking(${PROJECT_NAME})
+add_library(GUI STATIC ${GUI_SOURCES})
+target_include_directories(GUI PUBLIC ${GUI_INCLUDES})
+target_link_libraries(GUI PUBLIC ${GUI_LIBS})
+configure_target_compiler_options(GUI)
+
+add_executable(WSCpp ${WSCPP_SOURCES})
+target_link_libraries(WSCpp PRIVATE GUI WS)
+configure_target_compiler_options(WSCpp)
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 configure_assets(${PROJECT_NAME})

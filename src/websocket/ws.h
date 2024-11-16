@@ -21,8 +21,9 @@
 #include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/SSLManager.h"
-#include "logger.h"
-#include "message.h"
+#include "WSCLogger.h"
+#include "WSCMessage.h"
+#include "WSCQueue.h"
 
 using Poco::Net::HTTPClientSession;
 using Poco::Net::HTTPMessage;
@@ -37,7 +38,7 @@ struct Command {
     std::string reason = "";
 };
 
-using MessageQueue = WSCQueue<Message>;
+using MessageQueue = WSCQueue<WSCMessage>;
 using CommandQueue = WSCQueue<Command>;
 
 class WSC {
@@ -60,7 +61,7 @@ class WSC {
         Poco::Timespan sendTimeout;
         std::chrono::milliseconds pingInterval;
 
-        // Message settings
+        // WSCMessage settings
         int receiveMaxPayloadSize;
         int receiveBufferSize;
         int sendBufferSize;
@@ -111,8 +112,8 @@ class WSC {
     };
 
     // callbacks
-    using ControlMessageCallback = std::function<void(const Message &message)>;
-    using DataMessageCallback = std::function<void(const Message &message)>;
+    using ControlMessageCallback = std::function<void(const WSCMessage &message)>;
+    using DataMessageCallback = std::function<void(const WSCMessage &message)>;
     using StateChangeCallback = std::function<void(const std::string &state)>;
     using ErrorCallback = std::function<void(const std::string &message)>;
 
@@ -224,7 +225,7 @@ class WSC {
     StateChangeCallback m_stateChangeCallback;
     ErrorCallback m_errorCallback;
 
-    // Message handling
+    // WSCMessage handling
     std::unique_ptr<MessageQueue> m_messageQueue;
     std::unique_ptr<CommandQueue> m_commandQueue;
 
@@ -240,15 +241,16 @@ class WSC {
     Statistics m_stats;
 
     // Utility methods
-    bool establishWebsocketConnection(); 
-    void terminateWebsocketConnection(uint16_t code = 1000, const std::string &reason = "Normal closure");
+    bool establishWebsocketConnection();
+    void terminateWebsocketConnection(uint16_t code = 1000,
+                                      const std::string &reason = "Normal closure");
     void sendFrame(const void *buffer, size_t length, int flags);
 
     void parseURI(const std::string &url);
     void stopThreads();
     void cleanupResources();
-    int getOpcode(int flags) { return flags & MessageType::OPCODE_MASK; }
-    bool isFinalFrame(int flags) { return (flags & MessageType::FIN) != 0; }
+    int getOpcode(int flags) { return flags & WSCMessageType::OPCODE_MASK; }
+    bool isFinalFrame(int flags) { return (flags & WSCMessageType::FIN) != 0; }
     bool isValidFrameLength(int opcode, size_t length);
 
     // Retry handling

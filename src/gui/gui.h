@@ -3,11 +3,20 @@
 #define GL_SILENCE_DEPRECATION
 #endif
 
+#include "stb_image.h"
+
 #include <GLFW/glfw3.h>
 
 #include <memory>
 #include <string>
 
+#include "WSCLogger.h"
+#include "imgui.h"
+#include "imgui_custom.h"
+#include "imgui_freetype.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_stdlib.h"
 #include "ws.h"
 
 class WSC;
@@ -32,35 +41,35 @@ class GUI {
     }
 
     // Builder pattern for configuration
-    class Builder {
-       public:
-        Builder() : m_config{} {}
-        Builder &setSize(int width, int height) {
-            m_config.width = width;
-            m_config.height = height;
-            return *this;
-        }
-        Builder &setTitle(const std::string &title) {
-            m_config.title = title;
-            return *this;
-        }
-        Builder &setHost(const std::string &host) {
-            m_config.defaultHostHint = host;
-            return *this;
-        }
-        Builder &setVSync(bool enabled) {
-            m_config.vsync = enabled;
-            return *this;
-        }
-        Builder &setResizable(bool resizable) {
-            m_config.resizable = resizable;
-            return *this;
-        }
-        GUI build() { return GUI(m_config); }
+    // class Builder {
+    //    public:
+    //     Builder() : m_config{} {}
+    //     Builder &setSize(int width, int height) {
+    //         m_config.width = width;
+    //         m_config.height = height;
+    //         return *this;
+    //     }
+    //     Builder &setTitle(const std::string &title) {
+    //         m_config.title = title;
+    //         return *this;
+    //     }
+    //     Builder &setHost(const std::string &host) {
+    //         m_config.defaultHostHint = host;
+    //         return *this;
+    //     }
+    //     Builder &setVSync(bool enabled) {
+    //         m_config.vsync = enabled;
+    //         return *this;
+    //     }
+    //     Builder &setResizable(bool resizable) {
+    //         m_config.resizable = resizable;
+    //         return *this;
+    //     }
+    //     GUI build() { return GUI(m_config); }
 
-       private:
-        Config m_config;
-    };
+    //    private:
+    //     Config m_config;
+    // };
 
     // Main interface
     bool init();

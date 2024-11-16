@@ -15,10 +15,9 @@ function(configure_openssl)
     endif()
 endfunction()
 
-#==================================
-
 function(configure_poco)
     log_status("Configuring Poco library")
+    set(BUILD_SHARED_LIBS NO CACHE BOOL "" FORCE)
     
     function(disable_poco_modules)
         foreach(module ${ARGV})
@@ -42,13 +41,10 @@ function(configure_poco)
     endforeach()
 endfunction()
 
-#==================================
-
 function(configure_glfw)
     log_status("Configuring GLFW library")
+    set(GLFW_LIBRARY_TYPE "STATIC" CACHE STRING "" FORCE)
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 endfunction()
-
-#==================================

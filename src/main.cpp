@@ -1,7 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
+#define STB_IMAGE_IMPLEMENTATION
+
+#include "WSCLogger.h"
 #include "gui.h"
-#include "logger.h"
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO
 
 int main() {
     WSCLogger::init("WSC++", "WSCLog.txt", spdlog::level::debug);

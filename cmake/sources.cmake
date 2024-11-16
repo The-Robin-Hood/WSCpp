@@ -1,4 +1,6 @@
-set(IMGUI_SOURCES
+set(WSCPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+set(WS_SOURCES src/websocket/ws.cpp)
+set(GUI_SOURCES src/gui/gui.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_stdlib.cpp
     thirdparty/imgui/imgui_draw.cpp
@@ -11,34 +13,49 @@ set(IMGUI_SOURCES
     thirdparty/imgui/imgui_custom.cpp
 )
 
-set(PROJECT_SOURCES
-    src/main.cpp
-    src/gui.cpp
-    src/ws.cpp
+set(COMMON_INCLUDES
+    thirdparty/spdlog/include
+    src/utils/
 )
 
-function(configure_target_includes TARGET)
-    target_include_directories(${TARGET}
-        PRIVATE
-        ${OPENSSL_INCLUDE_DIR}
-        thirdparty/poco/include
-        thirdparty/imgui/include
-        thirdparty/glfw/include
-        thirdparty/freetype/include
-        thirdparty/spdlog/include
-        thirdparty/others/include
-        src/
-    )
+set(WS_INCLUDES
+    ${OPENSSL_INCLUDE_DIR}
+    src/websocket/
+    thirdparty/poco/include
+)
+
+set(GUI_INCLUDES
+    src/gui/
+    src/utils/
+    thirdparty/imgui/include
+    thirdparty/glfw/include
+    thirdparty/freetype/include
+    thirdparty/others/include
+)
+
+set(COMMON_LIBS spdlog::spdlog)
+set(WS_LIBS Poco::Foundation Poco::Net Poco::NetSSL Poco::Crypto OpenSSL::SSL OpenSSL::Crypto)
+
+if(WIN32)
+    set(GUI_LIBS WS glfw freetype opengl32)
+elseif(APPLE)
+    set(GUI_LIBS WS glfw freetype "-framework OpenGL")
+else()
+    set(GUI_LIBS WS glfw freetype OpenGL::GL)
+endif()
+
+function(setup_compiler_options)
+    if(MSVC)
+        add_compile_options(/MP)
+    else()
+        add_compile_options(-j4)
+    endif()
 endfunction()
 
-#==================================
-
-function(configure_compiler_options TARGET)
+function(configure_target_compiler_options TARGET)
     if(MSVC)
         target_compile_options(${TARGET} PRIVATE /W4 /MP)
-        log_status("Configured MSVC compiler options")
     else()
         target_compile_options(${TARGET} PRIVATE -Wall -Wextra -pedantic)
-        log_status("Configured GCC/Clang compiler options")
     endif()
 endfunction()
