@@ -8,7 +8,7 @@ endif()
 
 include(../cmake/utils.cmake)
 
-find_package(PkgConfig)
+find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(systemd libsystemd)
 endif()

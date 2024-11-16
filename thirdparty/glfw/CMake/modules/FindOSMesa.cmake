@@ -9,7 +9,7 @@
 
 if (NOT WIN32)
 
-  find_package (PkgConfig)
+  find_package (PkgConfig QUIET)
   pkg_check_modules (PKG_OSMESA QUIET osmesa)
 
   set (OSMESA_INCLUDE_DIR ${PKG_OSMESA_INCLUDE_DIRS})
