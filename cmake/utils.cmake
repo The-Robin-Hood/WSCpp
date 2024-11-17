@@ -12,11 +12,6 @@ macro(setup_cmake_configs)
         set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_BINARY_DIR}/lib)
     endforeach(OUTPUTCONFIG)
 
-    message(STATUS "Configured CMake output directories")
-    message(STATUS "CMAKE_RUNTIME_OUTPUT_DIRECTORY: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-    message(STATUS "CMAKE_LIBRARY_OUTPUT_DIRECTORY: ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-    message(STATUS "CMAKE_ARCHIVE_OUTPUT_DIRECTORY: ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
-
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
@@ -50,15 +45,15 @@ function(setup_console_colors)
 endfunction()
 
 function(log_status MESSAGE)
-    message(STATUS "${Green}${MESSAGE}${ColourReset}")
+    message(STATUS "${Green}[${PROJECT_NAME}] ${MESSAGE}${ColourReset}")
 endfunction()
 
 function(log_warning MESSAGE)
-    message(WARNING "${Yellow}${MESSAGE}${ColourReset}")
+    message(WARNING "${Yellow}[${PROJECT_NAME}]: ${MESSAGE}${ColourReset}")
 endfunction()
 
 function(log_error MESSAGE)
-    message(FATAL_ERROR "${Red}${MESSAGE}${ColourReset}")
+    message(FATAL_ERROR "${Red}[${PROJECT_NAME}]: ${MESSAGE}${ColourReset}")
 endfunction()
 
 function(configure_assets TARGET)
@@ -72,5 +67,13 @@ function(configure_assets TARGET)
         ${ASSETS_DEST_DIR}
         COMMENT "Copying assets to build directory"
     )
-    log_status("Configured asset copying from ${ASSETS_DIR}")
+endfunction()
+
+function(project_details)
+    log_status("Package version: ${PROJECT_VERSION}")
+    if(BUILD_SHARED_LIBS)
+        log_status("Building ${PROJECT_NAME} as shared library")
+    else()
+        log_status("Building ${PROJECT_NAME} as static library")
+    endif()
 endfunction()

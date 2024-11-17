@@ -45,7 +45,7 @@ if(WIN32)
 	if(NOT CMAKE_MC_COMPILER)
 		message(FATAL_ERROR "message compiler not found: required to build")
 	endif(NOT CMAKE_MC_COMPILER)
-	message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
+	# message(STATUS "Found message compiler: ${CMAKE_MC_COMPILER}")
 	mark_as_advanced(CMAKE_MC_COMPILER)
 endif(WIN32)
 

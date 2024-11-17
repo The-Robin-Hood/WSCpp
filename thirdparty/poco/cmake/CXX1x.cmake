@@ -20,7 +20,7 @@
 
 # Determines whether the compiler supports C++17
 macro(check_for_cxx17_compiler _VAR)
-    message(STATUS "Checking for C++17 compiler")
+    # message(STATUS "Checking for C++17 compiler")
     set(${_VAR})
     try_compile(_COMPILER_TEST_RESULT ${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cmake/test_compiler.cpp CMAKE_FLAGS -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON)
     if(NOT _COMPILER_TEST_RESULT AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -37,7 +37,7 @@ macro(check_for_cxx17_compiler _VAR)
     (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.4) OR
     (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")))
         set(${_VAR} 1)
-        message(STATUS "Checking for C++17 compiler - available")
+        # message(STATUS "Checking for C++17 compiler - available")
     else()
         message(STATUS "Checking for C++17 compiler - unavailable")
     endif()

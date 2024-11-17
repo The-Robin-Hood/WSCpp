@@ -682,3 +682,6 @@ set(CPACK_COMPONENT_LIBRARIES_GROUP "Development")
 set(CPACK_COMPONENT_HEADERS_GROUP "Development")
 
 include(CPack)
+
+set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+project_details()
