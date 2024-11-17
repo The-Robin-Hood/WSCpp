@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 project(WSCpp
     VERSION 1.0.0
     DESCRIPTION "WebSocket Client GUI Application in C++"
-    LANGUAGES CXX C
+    LANGUAGES CXX
 )
 
 # Initialize CMake modules
