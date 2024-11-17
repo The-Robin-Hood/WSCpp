@@ -219,7 +219,6 @@ bool WSC::handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_
 
 bool WSC::handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &buffer,
                           size_t length) {
-    const char *frameTypes[] = {"CONTINUATION", "TEXT", "BINARY"};
     if (!isFinal) {
         WSCLog(debug, "Recieving Continuation Frame");
     }

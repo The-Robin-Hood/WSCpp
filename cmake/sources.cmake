@@ -47,8 +47,6 @@ endif()
 function(setup_compiler_options)
     if(MSVC)
         add_compile_options(/MP)
-    else()
-        add_compile_options(-j4)
     endif()
 endfunction()
 

@@ -7,8 +7,7 @@
 #include <utility>
 
 // Convenience macros for logging with source location
-#define WSCLog(level, msg, ...) \
-    WSCLogger::level(msg, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
+#define WSCLog(level, msg) WSCLogger::level(msg, __FILE__, __LINE__, __FUNCTION__)
 
 class WSCLogger {
    public:
@@ -33,24 +32,20 @@ class WSCLogger {
 
     static void setPattern(const std::string& pattern) { getInstance().doSetPattern(pattern); }
 
-    static void debug(const std::string& msg, const char* file, int line, const char* function,
-                      const std::string& extra = "") {
-        log_with_location(spdlog::level::debug, msg, file, line, function, extra);
+    static void debug(const std::string& msg, const char* file, int line, const char* function) {
+        log_with_location(spdlog::level::debug, msg, file, line, function);
     }
 
-    static void info(const std::string& msg, const char* file, int line, const char* function,
-                     const std::string& extra = "") {
-        log_with_location(spdlog::level::info, msg, file, line, function, extra);
+    static void info(const std::string& msg, const char* file, int line, const char* function) {
+        log_with_location(spdlog::level::info, msg, file, line, function);
     }
 
-    static void warn(const std::string& msg, const char* file, int line, const char* function,
-                     const std::string& extra = "") {
-        log_with_location(spdlog::level::warn, msg, file, line, function, extra);
+    static void warn(const std::string& msg, const char* file, int line, const char* function) {
+        log_with_location(spdlog::level::warn, msg, file, line, function);
     }
 
-    static void error(const std::string& msg, const char* file, int line, const char* function,
-                      const std::string& extra = "") {
-        log_with_location(spdlog::level::err, msg, file, line, function, extra);
+    static void error(const std::string& msg, const char* file, int line, const char* function) {
+        log_with_location(spdlog::level::err, msg, file, line, function);
     }
 
    private:
@@ -64,8 +59,7 @@ class WSCLogger {
     }
 
     static void log_with_location(spdlog::level::level_enum level, const std::string& msg,
-                                  const char* file, int line, const char* function,
-                                  const std::string& extra) {
+                                  const char* file, int line, const char* function) {
         const auto& logger = getInstance().logger;
         if (logger->should_log(level)) {
             std::string filename = std::string(file);
@@ -73,15 +67,11 @@ class WSCLogger {
             if (last_slash != std::string::npos) {
                 filename = filename.substr(last_slash + 1);
             }
-            std::string location =
-                "[" + filename + ":" + std::to_string(line) + "]";
-                if(level == spdlog::level::trace){
-                    location+="[" + std::string(function) + "]";
-                }
-            logger->log(level, "{} {}", location, msg);
-            if (!extra.empty()) {
-                logger->log(level, "{}", extra);
+            std::string location = "[" + filename + ":" + std::to_string(line) + "]";
+            if (level == spdlog::level::trace) {
+                location += "[" + std::string(function) + "]";
             }
+            logger->log(level, "{} {}", location, msg);
         }
     }
 
