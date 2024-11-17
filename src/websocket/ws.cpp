@@ -1,8 +1,6 @@
 #include "ws.h"
 
 WSC::WSC(const std::string &url, const Config &config) : m_url(url), m_config(config) {
-    m_messageQueue = std::make_unique<MessageQueue>();
-    m_commandQueue = std::make_unique<CommandQueue>();
     if (url.empty()) {
         throw std::invalid_argument("Empty URL provided");
     }
@@ -12,9 +10,8 @@ WSC::WSC(const std::string &url, const Config &config) : m_url(url), m_config(co
         throw std::invalid_argument("Invalid host");
     }
 
-    if (m_port <= 0 || m_port > 65535) {
-        throw std::invalid_argument("Invalid port number");
-    }
+    m_messageQueue = std::make_unique<MessageQueue>();
+    m_commandQueue = std::make_unique<CommandQueue>();
     startWSCommandThread();
 }
 
@@ -482,9 +479,7 @@ void WSC::sendFrame(const void *buffer, size_t length, int flags) {
                 int sent = m_websocket->sendFrame(
                     static_cast<const char *>(buffer) + totalBytesSent, bytesToSend, flags);
                 if (sent < 0) {
-                    throw Poco::Exception("Failed to send frame - " + std::to_string(sent) +
-                                          " bytes sent out of " + std::to_string(bytesToSend) +
-                                          "flag: " + std::to_string(flags));
+                    updateState(State::WS_ERROR, "Failed to send frame");
                 }
                 firstFrame = false;
                 totalBytesSent += sent;
@@ -494,9 +489,7 @@ void WSC::sendFrame(const void *buffer, size_t length, int flags) {
             totalBytesSent = m_websocket->sendFrame(buffer, len, flags);
         }
         if (totalBytesSent < 0 || totalBytesSent != len) {
-            throw Poco::Exception("Failed to send frame - " + std::to_string(totalBytesSent) +
-                                  " bytes sent out of " + std::to_string(len) +
-                                  "flag: " + std::to_string(flags));
+            updateState(State::WS_ERROR, "Failed to send frame");
         }
     } catch (const Poco::Exception &e) {
         m_commandQueue->push(Command{"error", "Failed to send frame", e.displayText()});
@@ -534,7 +527,7 @@ void WSC::parseURI(const std::string &url) {
             m_path = "/";
         }
     } catch (const Poco::Exception &e) {
-        throw std::invalid_argument("Failed to parse URL: " + std::string(e.what()));
+        throw std::invalid_argument(std::string(e.displayText()));
     } catch (const std::exception &e) {
         throw std::invalid_argument("Failed to parse URL: " + std::string(e.what()));
     }
