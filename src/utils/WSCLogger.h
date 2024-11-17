@@ -5,6 +5,8 @@
 
 #include <string>
 #include <utility>
+#include <filesystem>
+#include <cstdlib>  
 
 // Convenience macros for logging with source location
 #define WSCLog(level, msg) WSCLogger::level(msg, __FILE__, __LINE__, __FUNCTION__)
@@ -84,7 +86,9 @@ class WSCLogger {
         sinks.push_back(console_sink);
 
         // File sink
-        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file, true);
+        std::string logDir = getLogDirectory();
+        std::string logPath = logDir + "/" + log_file;
+        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logPath, true);
         sinks.push_back(file_sink);
 
         logger = std::make_shared<spdlog::logger>(log_name, begin(sinks), end(sinks));
@@ -114,6 +118,42 @@ class WSCLogger {
         for (auto& sink : logger->sinks()) {
             sink->set_pattern(pattern);
         }
+    }
+
+    std::string getLogDirectory() {
+        const std::string APP_NAME = "WSCpp";
+        std::filesystem::path logDir;
+
+#if defined(_WIN32) || defined(_WIN64)
+        const char* appData = std::getenv("APPDATA");
+        if (appData) {
+            logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
+        } else {
+            logDir = std::filesystem::path("C:\\") / APP_NAME / "Logs";
+        }
+#elif defined(__APPLE__) && defined(__MACH__)
+        const char* homeDir = std::getenv("HOME");
+        if (homeDir) {
+            logDir = std::filesystem::path(homeDir) / "Library/Logs" / APP_NAME;
+        } else {
+            logDir = "/tmp/" + APP_NAME + "/Logs";
+        }
+#elif defined(__linux__)
+        const char* homeDir = std::getenv("HOME");
+        if (homeDir) {
+            logDir = std::filesystem::path(homeDir) / ".local/share" / APP_NAME / "Logs";
+        } else {
+            logDir = "/tmp/" + APP_NAME + "/Logs";
+        }
+#else
+        logDir = "/tmp/" + APP_NAME + "/Logs";
+#endif
+        try {
+            std::filesystem::create_directories(logDir);
+        } catch (const std::filesystem::filesystem_error& e) {
+            return "";
+        }
+        return logDir.string();
     }
 
     std::shared_ptr<spdlog::logger> logger;
