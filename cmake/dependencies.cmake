@@ -18,6 +18,8 @@ endfunction()
 function(configure_poco)
     log_status("Configuring Poco library")
     set(BUILD_SHARED_LIBS NO CACHE BOOL "" FORCE)
+    set(POCO_MT ON CACHE BOOL "" FORCE)
+    add_definitions(-DPOCO_NO_AUTOMATIC_LIBS)
     
     function(disable_poco_modules)
         foreach(module ${ARGV})

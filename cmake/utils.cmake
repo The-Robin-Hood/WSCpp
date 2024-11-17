@@ -20,6 +20,15 @@ macro(setup_cmake_configs)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
+    if(WIN32)
+        set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+        set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif()
+
+    set(OPENSSL_MSVC_STATIC_RT ON)
+    set(OPENSSL_USE_STATIC_LIBS ON)
+
     if(APPLE)
         enable_language(OBJCXX)
     endif()
@@ -55,18 +64,6 @@ endfunction()
 function(configure_assets TARGET)
     set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     set(ASSETS_DEST_DIR "$<TARGET_FILE_DIR:${TARGET}>/assets")
-
-    if(WIN32)
-        file(GLOB OPENSSL_DLLS "${OPENSSL_ROOT_DIR}/*.dll")
-        log_status("OpenSSL DLLs to copy: ${OPENSSL_DLLS}")
-        add_custom_command(
-            TARGET ${TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${OPENSSL_DLLS}
-            $<TARGET_FILE_DIR:${TARGET}>
-            COMMENT "Copying OpenSSL DLLs to build directory"
-        )
-    endif()
 
     add_custom_command(
         TARGET ${TARGET} POST_BUILD
