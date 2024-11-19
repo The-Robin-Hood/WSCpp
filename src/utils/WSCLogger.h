@@ -3,6 +3,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <iostream>
 #include <string>
 #include <utility>
 #include <filesystem>
@@ -125,7 +126,14 @@ class WSCLogger {
         std::filesystem::path logDir;
 
 #if defined(_WIN32) || defined(_WIN64)
-        const char* appData = std::getenv("APPDATA");
+        char* appData = nullptr;
+        size_t len = 0;
+        if (_dupenv_s(&appData, &len, "APPDATA") == 0 && appData) {
+            logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
+            free(appData);
+        } else {
+            logDir = std::filesystem::path("C:\\") / APP_NAME / "Logs";
+        }
         if (appData) {
             logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
         } else {
@@ -151,7 +159,8 @@ class WSCLogger {
         try {
             std::filesystem::create_directories(logDir);
         } catch (const std::filesystem::filesystem_error& e) {
-            return "";
+            std::cerr << "Failed to create log directory: " << e.what() << std::endl;
+            return "./";
         }
         return logDir.string();
     }
