@@ -11,10 +11,10 @@ readonly BUNDLE_CONTENTS="${BUNDLE_PATH}/Contents"
 readonly BUNDLE_MACOS="${BUNDLE_CONTENTS}/MacOS"
 readonly BUNDLE_RESOURCES="${BUNDLE_CONTENTS}/Resources"
 readonly EXECUTABLE="${RELEASE_DIR}/${APP_NAME}"
-
+readonly ASSETS_DIR="../../assets"
 # Required files
 readonly INFO_PLIST="Info.plist"
-readonly ICON_FILE="${APP_NAME}.icns"
+readonly ICON_FILE="${BUNDLE_RESOURCES}/assets/images/${APP_NAME}.icns"
 
 log() {
     echo "[${APP_NAME}] :: $1"
@@ -50,9 +50,12 @@ copy_files() {
     log "Copying Info.plist..."
     cp "${INFO_PLIST}" "${BUNDLE_CONTENTS}/"
 
+    log "Copying assets..."
+    cp -r "${ASSETS_DIR}" "${BUNDLE_RESOURCES}/"
+
     if [ -f "${ICON_FILE}" ]; then
         log "Copying app icon..."
-        cp "${ICON_FILE}" "${BUNDLE_RESOURCES}/icon.icns"
+        mv "${ICON_FILE}" "${BUNDLE_RESOURCES}/icon.icns"
     else
         log "Warning: ${ICON_FILE} not found. App will use default icon."
     fi
