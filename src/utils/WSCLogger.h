@@ -87,7 +87,7 @@ class WSCLogger {
         sinks.push_back(console_sink);
 
         // File sink
-        std::string logDir = getLogDirectory();
+        std::string logDir = WSCUtils::getLogDirectory();
         std::string logPath = logDir + "/" + log_file;
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logPath, true);
         sinks.push_back(file_sink);

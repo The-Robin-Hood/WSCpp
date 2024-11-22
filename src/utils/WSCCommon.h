@@ -1,24 +1,28 @@
 #pragma once
-#include <filesystem>
-#include <iostream>
-#include <string>
-
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
-static std::string getLogDirectory() {
+#include <filesystem>
+#include <iostream>
+#include <string>
+
+namespace WSCUtils {
+inline std::string getLogDirectory() {
     const std::string APP_NAME = "WSCpp";
     std::filesystem::path logDir;
 
 #if defined(_WIN32) || defined(_WIN64)
-    const char* appData = std::getenv("APPDATA");
-    if (appData) {
+    char* appData = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&appData, &len, "APPDATA") == 0 && appData) {
         logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
+        free(appData);
     } else {
         logDir = std::filesystem::path("C:\\") / APP_NAME / "Logs";
     }
@@ -42,12 +46,13 @@ static std::string getLogDirectory() {
     try {
         std::filesystem::create_directories(logDir);
     } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Failed to create log directory: " << e.what() << std::endl;
         return "";
     }
     return logDir.string();
 }
 
-static std::string getBasePath() {
+inline std::string getBasePath() {
     std::string basePath = ".";
 
 #ifdef __APPLE__
@@ -65,4 +70,31 @@ static std::string getBasePath() {
     }
 #endif
     return basePath;
+}
+
+inline std::vector<char> loadResource(int resourceId, const std::string& resourceType) {
+    std::cout << "Loading resource: " << resourceId << " of type: " << resourceType << std::endl;
+    HMODULE hModule = GetModuleHandle(NULL);
+    std::wstring resourceTypeW(resourceType.begin(), resourceType.end());
+    HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(resourceId), resourceTypeW.c_str());
+    if (!hResource) {
+        std::cerr << "Error: Resource not found. " << GetLastError() << std::endl;
+        return {};
+    }
+
+    HGLOBAL hLoadedResource = LoadResource(hModule, hResource);
+    if (!hLoadedResource) {
+        std::cerr << "Error: Could not load resource.\n";
+        return {};
+    }
+
+    DWORD resourceSize = SizeofResource(hModule, hResource);
+    if (resourceSize == 0) {
+        std::cerr << "Error: Resource size is zero.\n";
+        return {};
+    }
+
+    void* pResourceData = LockResource(hLoadedResource);
+    return std::vector<char>((char*)pResourceData, (char*)pResourceData + resourceSize);
+}
 }

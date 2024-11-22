@@ -29,9 +29,14 @@ class GUI {
         std::string defaultHostHint = "wss://192.168.0.175:8000";
         bool vsync = true;
         bool resizable = true;
-        std::string basePath = getBasePath();
+#ifdef _WIN32
+        std::vector<char> logo = WSCUtils::loadResource(101, "PNG");
+        std::vector<std::vector<char>> fonts = {WSCUtils::loadResource(102, "BINARY")};
+#else
+        std::string basePath = WSCUtils::getBasePath();
         std::string logoPath = basePath + "/assets/images/logo.png";
-        std::vector<std::string> fonts = {"NotoEmoji.ttf"};
+        std::vector<std::string> fontPaths = {basePath + "/assets/fonts/NotoEmoji.ttf"};
+#endif
     };
 
     // Singleton

@@ -1,0 +1,4 @@
+#include <windows.h>
+
+101 PNG "../assets/images/logo.png"
+102 BINARY "../assets/fonts/NotoEmoji.ttf"

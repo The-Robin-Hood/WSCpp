@@ -23,8 +23,13 @@ bool GUI::init() {
 
 bool GUI::setWindowIcon() {
     int width, height, channels;
+#ifdef _WIN32
+    unsigned char *image = stbi_load_from_memory(
+        reinterpret_cast<const unsigned char *>(m_config.logo.data()),
+        static_cast<int>(m_config.logo.size()), &width, &height, &channels, 4);
+#else
     unsigned char *image = stbi_load(m_config.logoPath.c_str(), &width, &height, &channels, 4);
-
+#endif
     if (image) {
         // Create GLFW image structure
         GLFWimage icons[1]{};
@@ -85,13 +90,23 @@ bool GUI::initImGui() {
     cfg.OversampleH = cfg.OversampleV = 1;
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
+#ifdef _WIN32
     for (const auto &font : m_config.fonts) {
+        if (!m_io.Fonts->AddFontFromMemoryTTF((void *)font.data(), static_cast<int>(font.size()), 13.0f, &cfg,
+                                              ranges)) {
+            WSCLog(error, "Failed to load font from memory");
+            return false;
+        }
+    }
+#else
+    for (const auto &font : m_config.fontPaths) {
         std::string fontPath = m_config.basePath + "/assets/fonts/" + font;
         if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
             WSCLog(error, "Failed to load font: " + fontPath);
             return false;
         }
     }
+#endif
     if (!m_io.Fonts->Build()) {
         WSCLog(error, "Failed to build fonts");
         return false;
