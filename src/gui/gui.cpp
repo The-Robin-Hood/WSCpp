@@ -100,9 +100,8 @@ bool GUI::initImGui() {
     }
 #else
     for (const auto &font : m_config.fontPaths) {
-        std::string fontPath = m_config.basePath + "/assets/fonts/" + font;
-        if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
-            WSCLog(error, "Failed to load font: " + fontPath);
+        if (!m_io.Fonts->AddFontFromFileTTF(font.c_str(), 13.0f, &cfg, ranges)) {
+            WSCLog(error, "Failed to load font: " + font);
             return false;
         }
     }
