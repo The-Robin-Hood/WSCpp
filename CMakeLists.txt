@@ -25,6 +25,7 @@ add_subdirectory(thirdparty/poco)
 add_subdirectory(thirdparty/glfw)
 add_subdirectory(thirdparty/freetype)
 add_subdirectory(thirdparty/spdlog)
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
 add_library(WS STATIC ${WS_SOURCES})
 target_include_directories(WS PUBLIC ${COMMON_INCLUDES} ${WS_INCLUDES})
@@ -36,7 +37,12 @@ target_include_directories(GUI PUBLIC ${GUI_INCLUDES})
 target_link_libraries(GUI PUBLIC ${GUI_LIBS})
 configure_target_compiler_options(GUI)
 
-add_executable(WSCpp ${WSCPP_SOURCES})
+if(WIN32)
+    add_executable(${PROJECT_NAME} WIN32 ${WSCPP_SOURCES})
+else()
+    add_executable(${PROJECT_NAME} ${WSCPP_SOURCES})
+endif()
+
 target_link_libraries(WSCpp PRIVATE GUI WS)
 configure_target_compiler_options(WSCpp)
 

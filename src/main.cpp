@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 
 #include "WSCLogger.h"
@@ -25,3 +24,13 @@ int main() {
 
     return 0;
 }
+
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    (void)hInstance;
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+    (void)nCmdShow;
+    return main();
+}
+#endif
