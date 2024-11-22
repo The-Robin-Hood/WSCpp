@@ -3,7 +3,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include <iostream>
+#include "WSCCommon.h"
 #include <string>
 #include <utility>
 #include <filesystem>
@@ -120,50 +120,5 @@ class WSCLogger {
             sink->set_pattern(pattern);
         }
     }
-
-    std::string getLogDirectory() {
-        const std::string APP_NAME = "WSCpp";
-        std::filesystem::path logDir;
-
-#if defined(_WIN32) || defined(_WIN64)
-        char* appData = nullptr;
-        size_t len = 0;
-        if (_dupenv_s(&appData, &len, "APPDATA") == 0 && appData) {
-            logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
-            free(appData);
-        } else {
-            logDir = std::filesystem::path("C:\\") / APP_NAME / "Logs";
-        }
-        if (appData) {
-            logDir = std::filesystem::path(appData) / APP_NAME / "Logs";
-        } else {
-            logDir = std::filesystem::path("C:\\") / APP_NAME / "Logs";
-        }
-#elif defined(__APPLE__) && defined(__MACH__)
-        const char* homeDir = std::getenv("HOME");
-        if (homeDir) {
-            logDir = std::filesystem::path(homeDir) / "Library/Logs" / APP_NAME;
-        } else {
-            logDir = "/tmp/" + APP_NAME + "/Logs";
-        }
-#elif defined(__linux__)
-        const char* homeDir = std::getenv("HOME");
-        if (homeDir) {
-            logDir = std::filesystem::path(homeDir) / ".local/share" / APP_NAME / "Logs";
-        } else {
-            logDir = "/tmp/" + APP_NAME + "/Logs";
-        }
-#else
-        logDir = "/tmp/" + APP_NAME + "/Logs";
-#endif
-        try {
-            std::filesystem::create_directories(logDir);
-        } catch (const std::filesystem::filesystem_error& e) {
-            std::cerr << "Failed to create log directory: " << e.what() << std::endl;
-            return "./";
-        }
-        return logDir.string();
-    }
-
     std::shared_ptr<spdlog::logger> logger;
 };

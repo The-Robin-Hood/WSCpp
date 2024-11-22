@@ -86,7 +86,7 @@ bool GUI::initImGui() {
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
     for (const auto &font : m_config.fonts) {
-        std::string fontPath = "assets/fonts/" + font;
+        std::string fontPath = m_config.basePath + "/assets/fonts/" + font;
         if (!m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &cfg, ranges)) {
             WSCLog(error, "Failed to load font: " + fontPath);
             return false;
@@ -205,6 +205,7 @@ void GUI::renderMainWindow() {
                 WSCLog(debug, "Setting up websocket configuration");
                 // m_allMessages->clear();
                 if (m_websocket == nullptr) {
+                    WSCLog(debug, "Connecting to " + m_hostInput);
                     m_websocket = std::make_unique<WSC>(m_hostInput, config);
                     m_allMessages = std::make_unique<MessageQueue>();
                     m_websocket->setDataMessageCallback([this](WSCMessage message) {
@@ -220,8 +221,8 @@ void GUI::renderMainWindow() {
                             WSCLog(debug, "State changed to " + state);
                             m_allMessages->push(
                                 WSCMessage{WSCMessageType::RECEIVED,
-                                        std::vector<unsigned char>(stateMessage.begin(),
-                                                                   stateMessage.end())},
+                                           std::vector<unsigned char>(stateMessage.begin(),
+                                                                      stateMessage.end())},
                                 true);
                         }
                     });
@@ -286,10 +287,11 @@ void GUI::renderMainWindow() {
                 if (!m_websocket->sendText(m_sendMessageInput)) {
                     WSCLog(error, "Failed to send message");
                 }
-                m_allMessages->push(WSCMessage{WSCMessageType::SENT,
-                                            std::vector<unsigned char>(m_sendMessageInput.begin(),
-                                                                       m_sendMessageInput.end())},
-                                    true);
+                m_allMessages->push(
+                    WSCMessage{WSCMessageType::SENT,
+                               std::vector<unsigned char>(m_sendMessageInput.begin(),
+                                                          m_sendMessageInput.end())},
+                    true);
                 m_sendMessageInput.clear();
             }
         }

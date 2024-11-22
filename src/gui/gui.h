@@ -3,8 +3,6 @@
 #define GL_SILENCE_DEPRECATION
 #endif
 
-#include "stb_image.h"
-
 #include <GLFW/glfw3.h>
 
 #include <memory>
@@ -17,6 +15,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_stdlib.h"
+#include "stb_image.h"
 #include "ws.h"
 
 class WSC;
@@ -30,7 +29,8 @@ class GUI {
         std::string defaultHostHint = "wss://192.168.0.175:8000";
         bool vsync = true;
         bool resizable = true;
-        std::string logoPath = "assets/images/logo.png";
+        std::string basePath = getBasePath();
+        std::string logoPath = basePath + "/assets/images/logo.png";
         std::vector<std::string> fonts = {"NotoEmoji.ttf"};
     };
 
