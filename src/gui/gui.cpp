@@ -91,6 +91,7 @@ bool GUI::initImGui() {
     cfg.MergeMode = true;
     cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
 #ifdef _WIN32
+    cfg.FontDataOwnedByAtlas = false;
     for (const auto &font : m_config.fonts) {
         if (!m_io.Fonts->AddFontFromMemoryTTF((void *)font.data(), static_cast<int>(font.size()), 13.0f, &cfg,
                                               ranges)) {
