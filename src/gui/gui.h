@@ -9,14 +9,17 @@
 #include <string>
 
 #include "WSCLogger.h"
+#include "ui.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_custom.h"
 #include "imgui_freetype.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_stdlib.h"
-#include "stb_image.h"
 #include "ws.h"
+
+#define WCHAR(x) (ImWchar)(x)
 
 class WSC;
 
@@ -29,14 +32,6 @@ class GUI {
         std::string defaultHostHint = "wss://192.168.0.175:8000";
         bool vsync = true;
         bool resizable = true;
-#ifdef _WIN32
-        std::vector<char> logo = WSCUtils::loadResource(101, "PNG");
-        std::vector<std::vector<char>> fonts = {WSCUtils::loadResource(102, "BINARY")};
-#else
-        std::string basePath = WSCUtils::getBasePath();
-        std::string logoPath = basePath + "/assets/images/logo.png";
-        std::vector<std::string> fontPaths = {basePath + "/assets/fonts/NotoEmoji.ttf"};
-#endif
     };
 
     // Singleton
@@ -113,11 +108,38 @@ class GUI {
     std::string m_hostInput;
     std::string m_sendMessageInput;
 
+    std::string m_basePath = WSCUtils::getBasePath();
+    std::string m_imagesPath = m_basePath + "/assets/images";
+    std::string m_fontsPath = m_basePath + "/assets/fonts";
+
+    std::vector<int> m_fontSizes = {12, 14, 16, 20, 24};
+    std::vector<std::string> m_fontNames = {"NotoEmoji", "Inter-Regular",
+                                            "Inter-SemiBold", "Inter-Bold"};
+    std::map<std::string, std::map<std::string, ImFont *>> m_fonts;
+
+#ifdef _WIN32
+    std::vector<char> m_preLoadedlogo = WSCUtils::loadResource(101, "PNG");
+    std::vector<std::vector<char>> m_preLoadedfonts = {
+        WSCUtils::loadResource(102, "BINARY"), WSCUtils::loadResource(103, "BINARY"),
+        WSCUtils::loadResource(104, "BINARY"), WSCUtils::loadResource(105, "BINARY")
+        };
+#else
+    std::string m_logoPath = m_imagesPath + "/logo.png";
+#endif
+
+    GLuint m_logoTexture;
+
     // Internal methods
     bool initWindow();
     bool setWindowIcon();
     bool initImGui();
     void cleanupImGui();
+
+    // Layout methods
+    void beginBaseLayout();
+    void endBaseLayout();
+
+    void titleBar();
 
     // ImGui rendering methods
     void renderMainWindow();

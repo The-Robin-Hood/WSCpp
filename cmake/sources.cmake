@@ -1,6 +1,6 @@
 set(WSCPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(WS_SOURCES src/websocket/ws.cpp)
-set(GUI_SOURCES src/gui/gui.cpp
+set(GUI_SOURCES src/gui/gui.cpp src/gui/ui.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_stdlib.cpp
     thirdparty/imgui/imgui_draw.cpp
