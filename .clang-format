@@ -1,5 +1,7 @@
 BasedOnStyle: Google
 IndentWidth: 4
 TabWidth: 4
-UseTab: Never
+UseTab: Always
 ColumnLimit: 99
+BreakBeforeBraces: Attach
+NamespaceIndentation: All

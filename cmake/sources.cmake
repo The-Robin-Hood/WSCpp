@@ -1,17 +1,8 @@
+file(GLOB UI_SOURCES src/gui/ui/*.cpp)
+file(GLOB IMG_SOURCES thirdparty/imgui/*.cpp)
 set(WSCPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(WS_SOURCES src/websocket/ws.cpp)
-set(GUI_SOURCES src/gui/gui.cpp src/gui/ui.cpp
-    thirdparty/imgui/imgui.cpp
-    thirdparty/imgui/imgui_stdlib.cpp
-    thirdparty/imgui/imgui_draw.cpp
-    thirdparty/imgui/imgui_demo.cpp
-    thirdparty/imgui/imgui_widgets.cpp
-    thirdparty/imgui/imgui_tables.cpp
-    thirdparty/imgui/imgui_impl_glfw.cpp
-    thirdparty/imgui/imgui_impl_opengl3.cpp
-    thirdparty/imgui/imgui_freetype.cpp
-    thirdparty/imgui/imgui_custom.cpp
-)
+set(GUI_SOURCES src/gui/gui.cpp ${UI_SOURCES} ${IMG_SOURCES})
 
 set(COMMON_INCLUDES
     thirdparty/spdlog/include
@@ -26,6 +17,7 @@ set(WS_INCLUDES
 
 set(GUI_INCLUDES
     src/gui/
+    src/gui/ui/
     src/utils/
     thirdparty/imgui/include
     thirdparty/glfw/include
