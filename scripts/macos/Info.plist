@@ -14,9 +14,9 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
 	<key>CFBundleName</key>
-	<string>WSC++</string>
+	<string>WSCpp</string>
 	<key>CFBundleDisplayName</key>
-	<string>WSC++</string>
+	<string>WSCpp</string>
 	<key>CFBundleIdentifier</key>
 	<string>cpp.ws</string>
 	<key>CFBundlePackageType</key>

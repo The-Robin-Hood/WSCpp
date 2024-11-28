@@ -105,7 +105,7 @@ class WSC {
               caLocation(""),
               cipherList("ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
               verificationMode(5),  // 0 - none, 1 - relaxed, 3 - strict, 5 - verifyOnce
-              userAgent("WSC++ v1.0"),
+              userAgent("WSCpp v1.0"),
               autoPing(true),
               pongThreshold(3),
               serverCrashContinuationFrame(10) {}

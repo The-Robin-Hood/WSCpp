@@ -4,9 +4,9 @@
 #include "gui.h"
 
 int main() {
-    WSCLogger::init("WSC++", "WSCLog.txt", spdlog::level::debug);
+    WSCLogger::init("WSCpp", "WSCLog.txt", spdlog::level::debug);
 
-    WSCLog(info, "Starting WSC++");
+    WSCLog(info, "Starting WSCpp");
     GUI &gui = GUI::getInstance();
     if (!gui.init()) {
         return -1;
@@ -20,7 +20,7 @@ int main() {
     }
 
     gui.closeGUI();
-    WSCLog(info, "Exiting WSC++");
+    WSCLog(info, "Exiting WSCpp");
 
     return 0;
 }
