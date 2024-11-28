@@ -21,29 +21,23 @@ bool GUI::init() {
     return true;
 }
 
-bool GUI::setWindowIcon() {
-    int width, height;
-    if (!WSCpp::UI::loadTextureFromMemory(m_preLoadedlogo.data(), m_preLoadedlogo.size(),
-                                          &m_logoTexture, &width, &height)) {
-        WSCLog(error, "Failed to load texture from memory");
-        return false;
-    }
-    return true;
-}
-
 bool GUI::initWindow() {
+    /*
+    We are disabling window resizing, making the window transparent and removing the window border
+    Since we are using custom title bar, we don't need the default window title bar
+    */
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    glfwWindowHint(GLFW_DECORATED, false);
-    m_window.reset(
-        glfwCreateWindow(m_config.width, m_config.height, m_config.title.c_str(), NULL, NULL));
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    m_window.reset(glfwCreateWindow(m_windowConfig.width, m_windowConfig.height,
+                                    m_windowConfig.title.c_str(), NULL, NULL));
     if (!m_window) {
         glfwTerminate();
         WSCLog(error, "Failed to create window");
         return false;
     }
-
     glfwMakeContextCurrent(getWindow());
-    glfwSwapInterval(m_config.vsync);
+    glfwSwapInterval(m_windowConfig.vsync);
     return true;
 }
 
@@ -54,10 +48,6 @@ bool GUI::initImGui() {
         WSCLog(error, "Failed to create ImGui context");
         return false;
     }
-
-    ImGuiIO &m_io = ImGui::GetIO();
-    m_io.IniFilename = nullptr;
-    ImGui::StyleColorsClassic();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(getWindow(), true)) {
         WSCLog(error, "Failed to initialize ImGui for OpenGL-GLFW");
@@ -70,66 +60,30 @@ bool GUI::initImGui() {
     ImGui_ImplOpenGL3_Init("#version 130");
 #endif
 
-    static ImFontConfig cfg;
-    const ImWchar ranges[] = {
-        WCHAR(0x0020),  WCHAR(0x00FF),   // Basic Latin (A-Z, a-z, numbers, punctuation)
-        WCHAR(0x0100),  WCHAR(0x024F),   // Extended Latin
-        WCHAR(0x1F300), WCHAR(0x1F5FF),  // Miscellaneous Symbols and Pictographs (Emojis)
-        WCHAR(0x1F900), WCHAR(0x1F9FF),  // Supplemental Symbols and Pictographs (More emojis)
-        WCHAR(0x2600),  WCHAR(0x26FF),   // Miscellaneous Symbols (e.g., ☀, ☁, ☂)
-        WCHAR(0x1F600), WCHAR(0x1F64F),  // Emoticons (Smiley faces)
-        WCHAR(0x1F680), WCHAR(0x1F6FF),  // Transport and Map Symbols (e.g., 🚗, 🚕)
-        WCHAR(0x2700),  WCHAR(0x27BF),   // Dingbats (e.g., ✈, ✉)
-        WCHAR(0x2190),  WCHAR(0x21FF),   // Arrow symbols
-        WCHAR(0x2B00),  WCHAR(0x2BFF),   // Miscellaneous
-        WCHAR(0)};
-
-    cfg.OversampleH = cfg.OversampleV = 1;
-    cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
-    cfg.FontDataOwnedByAtlas = false;
-    for (int i = 0; i < m_fontNames.size(); i++) {
-        for (auto &fontSize : m_fontSizes) {
-#ifdef _WIN32
-            ImFont *f = m_io.Fonts->AddFontFromMemoryTTF(
-                (void *)m_preLoadedfonts[i].data(), static_cast<int>(m_preLoadedfonts[i].size()),
-                static_cast<float>(fontSize), &cfg, ranges);
-#else
-            std::string fontPath = m_fontsPath + "/" + m_fontNames[i] + ".ttf";
-            ImFont *f = m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), fontSize, &cfg, ranges);
-#endif
-            if (!f) {
-                WSCLog(error, "Failed to load font: " + m_fontNames[i]);
-                return false;
-            }
-            m_fonts[m_fontNames[i]][std::to_string(fontSize)] = f;
-        }
-    }
-
-    if (!m_io.Fonts->Build()) {
-        WSCLog(error, "Failed to build fonts");
-        return false;
-    }
+    ImGuiIO &m_io = ImGui::GetIO();
+    m_io.IniFilename = nullptr;
     m_io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_DockingEnable;
-    WSCLog(debug, "Number of Fonts loaded : " +
-                      std::to_string(m_io.Fonts->Fonts.Size / m_fontNames.size()) + " ( " +
-                      std::to_string(m_fontSizes.size()) + " sizes each)");
-    if (!setWindowIcon()) {
-        WSCLog(error, "Failed to set window icon");
+
+    if (!WSCpp::UI::Resources::setupFonts(m_io, m_fonts, m_fontsPath, m_preLoadedfonts)) {
+        WSCLog(error, "Failed while setting up fonts");
         return false;
     }
+
+    if (!WSCpp::UI::Resources::setupLogo(m_logoPath, m_preLoadedlogo, m_logoTexture)) {
+        WSCLog(error, "Failed while setting up logo");
+        return false;
+    }
+
+    WSCpp::UI::Theme::setup();
     return true;
 }
 
-void GUI::cleanupImGui() {
+void GUI::closeGUI() {
     WSCLog(debug, "Cleaning up ImGui");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
-
-bool GUI::shouldClose() const { return glfwWindowShouldClose(getWindow()); }
-
-void GUI::closeGUI() { cleanupImGui(); }
 
 void GUI::update() {
     ImGui_ImplOpenGL3_NewFrame();
@@ -137,46 +91,70 @@ void GUI::update() {
     ImGui::NewFrame();
 }
 
-void GUI::beginBaseLayout() {
-    ImGuiViewport *viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->Pos);
-    ImGui::SetNextWindowSize(viewport->Size);
-    ImGui::SetNextWindowViewport(viewport->ID);
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4{0.0f, 0.0f, 0.0f, 0.0f});
-    ImGui::Begin("##BaseLayout", NULL,
-                 ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus);
-    ImGui::PopStyleColor();
-    ImGui::PushFont(m_fonts["Inter-Regular"]["14"]);
-}
-
-void GUI::endBaseLayout() {
-    ImGui::PopFont();
-    ImGui::End();
-}
-
 void GUI::titleBar() {
-    const float titlebarHeight = 60.0f;
-    float titlebarVerticalOffset = 0.0f;
+    const float titlebarHeight = 30.0f;
     const ImVec2 windowPadding = ImGui::GetCurrentWindow()->WindowPadding;
 
     ImGui::PushFont(m_fonts["Inter-Bold"]["16"]);
     auto *fgDrawList = ImGui::GetForegroundDrawList();
     const float logoHorizontalOffset = 35.0f + windowPadding.x;
+    const ImVec2 titlebarMin = ImVec2(0.0f, 0.0f);
+    const ImVec2 titlebarMax = {
+        ImGui::GetCursorScreenPos().x + ImGui::GetWindowWidth() - windowPadding.y,
+        ImGui::GetCursorScreenPos().y + titlebarHeight};
+
     ImGui::SetCursorPos(ImVec2(0.0f, 0.0f));
     {
-        fgDrawList->AddImage(
-            m_logoTexture, ImVec2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y),
-            ImVec2(ImGui::GetCursorScreenPos().x + 35.0f, ImGui::GetCursorScreenPos().y + 35.0f));
+        const float logoWidth = 40.0f;
+        const float logoHeight = 40.0f;
+        const ImVec2 logoOffset(windowPadding.x, windowPadding.y);
+        const ImVec2 logoRectStart = {ImGui::GetItemRectMin().x + logoOffset.x,
+                                      ImGui::GetItemRectMin().y + logoOffset.y};
+        const ImVec2 logoRectMax = {logoRectStart.x + logoWidth, logoRectStart.y + logoHeight};
+        fgDrawList->AddImage(m_logoTexture, logoRectStart, logoRectMax);
     }
-    ImGui::SetCursorPos(ImVec2(logoHorizontalOffset, 0.0f));
-    const ImRect menuBarRect = {ImGui::GetCursorPos(),
-                                {ImGui::GetContentRegionAvail().x + ImGui::GetCursorScreenPos().x,
-                                 ImGui::GetFrameHeightWithSpacing()}};
-    ImGui::SetItemAllowOverlap();
-    if (WSCpp::UI::beginMenubar(menuBarRect)) {
+
+    const float buttonsAreaWidth = 50;
+    {
+        // Get the current window's position and the mouse position
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        ImVec2 mousePos = ImGui::GetMousePos();
+
+        // Static variables to maintain dragging state across frames
+        static bool isDragging = false;
+        static ImVec2 dragOffset;
+
+        // Check if the mouse is in the drag zone
+        bool isMouseInDragZone = mousePos.x >= titlebarMin.x &&
+                                 mousePos.x <= titlebarMax.x - buttonsAreaWidth &&
+                                 mousePos.y >= titlebarMin.y && mousePos.y <= titlebarMax.y;
+
+        // Start dragging
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && isMouseInDragZone) {
+            isDragging = true;
+            dragOffset = ImVec2(mousePos.x - windowPos.x, mousePos.y - windowPos.y);
+        }
+
+        // Continue dragging
+        if (isDragging && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            int newX = (int)(mousePos.x - dragOffset.x);
+            int newY = (int)(mousePos.y - dragOffset.y);
+            glfwSetWindowPos(getWindow(), newX, newY);
+        }
+
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            isDragging = false;
+        }
+    }
+    ImGui::SetCursorPos(ImVec2(logoHorizontalOffset * 1.3, 0.0f));
+    const ImRect menuBarRect = {
+        ImGui::GetCursorPos(),
+        {ImGui::GetContentRegionAvail().x + ImGui::GetCursorScreenPos().x - 30.0f,
+         ImGui::GetFrameHeightWithSpacing()}};
+
+    ImGui::BeginGroup();
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, RGBAtoIV4(255, 254, 0, 255));
+    if (WSCpp::UI::Layout::beginMenubar(menuBarRect)) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {
                 WSCLog(debug, "Exit clicked");
@@ -190,25 +168,34 @@ void GUI::titleBar() {
             }
             ImGui::EndMenu();
         }
-        WSCpp::UI::endMenubar();
+        WSCpp::UI::Layout::endMenubar();
     }
+    ImGui::PopStyleColor();
+    ImGui::EndGroup();
 
+    ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 30.0f, 2.0f));
+    ImGui::PushStyleColor(ImGuiCol_Button, RGBAtoIV4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RGBAtoIV4(255, 0, 0, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, RGBAtoIV4(255, 0, 0, 255));
+    // close and minimize button to be drawn above the menubar
+    if (ImGui::SmallButton("X")) {
+        glfwSetWindowShouldClose(getWindow(), true);
+    }
+    ImGui::PopStyleColor(3);
     ImGui::PopFont();
 }
 
 void GUI::render() {
-    // Clear the background
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    // Clear the background setting transparent color
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Render main application window
-
-    // renderMainWindow();
-    beginBaseLayout();
+    WSCpp::UI::Layout::beginBaseLayout(m_fonts["Inter-Regular"]["14"]);
     titleBar();
+    // renderMainWindow();
     // renderStatusBar();
-    endBaseLayout();
-    // renderTitleBar();
+    WSCpp::UI::Layout::endBaseLayout();
+
     // Render ImGui
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -217,60 +204,37 @@ void GUI::render() {
     glfwMakeContextCurrent(getWindow());
 }
 
-// void GUI::renderStatusBar() {
-//     // Create status bar at the bottom of the screen
-//     const float statusBarHeight = 30.0f;
-//     ImGui::SetNextWindowPos(ImVec2(ImGui::GetMainViewport()->Pos.x,
-//                                    ImGui::GetMainViewport()->Pos.y +
-//                                        ImGui::GetMainViewport()->Size.y - statusBarHeight),
-//                             ImGuiCond_FirstUseEver);
-//     ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, statusBarHeight),
-//                              ImGuiCond_FirstUseEver);
-//     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
-//     ImGui::Begin("##statusbar", nullptr,
-//                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-//                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse |
-//                      ImGuiWindowFlags_NoMove);
+void GUI::renderStatusBar() {
+    // Create status bar at the bottom of the screen
+    const float statusBarHeight = 30.0f;
+    ImGui::SetCursorPosY(ImGui::GetMainViewport()->Size.y - statusBarHeight);
+    WSC::State currentWSState =
+        m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
+    ImGui::Text("Status : ");
+    ImGui::SameLine();
+    if (currentWSState == WSC::State::UNINITIALIZED)
+        ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5f), "Uninitialized");
+    else if (currentWSState == WSC::State::CONNECTING)
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
+    else if (currentWSState == WSC::State::DISCONNECTING)
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Disconnecting");
+    else if (currentWSState == WSC::State::DISCONNECTED || currentWSState == WSC::State::WS_ERROR)
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
+    else if (currentWSState == WSC::State::CONNECTED)
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
 
-//     WSC::State currentWSState =
-//         m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
-//     ImGui::Text("Status : ");
-//     ImGui::SameLine();
-//     if (currentWSState == WSC::State::UNINITIALIZED)
-//         ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5f), "Uninitialized");
-//     else if (currentWSState == WSC::State::CONNECTING)
-//         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
-//     else if (currentWSState == WSC::State::DISCONNECTING)
-//         ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Disconnecting");
-//     else if (currentWSState == WSC::State::DISCONNECTED || currentWSState ==
-//     WSC::State::WS_ERROR)
-//         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
-//     else if (currentWSState == WSC::State::CONNECTED)
-//         ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
-
-//     ImGui::SameLine(ImGui::GetWindowWidth() - 80);
-//     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-
-//     ImGui::End();
-// }
+    ImGui::SameLine(ImGui::GetWindowWidth() - 80);
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+}
 
 void GUI::renderMainWindow() {
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
     WSC::State currentWSState =
         m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
 
-    ImGui::SetNextWindowSize(
-        ImVec2(ImGui::GetMainViewport()->Size.x, ImGui::GetMainViewport()->Size.y - 29.0f),
-        ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
-    ImGui::Begin("WSC", NULL,
-                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
-                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoTitleBar);
-
     ImGui::Spacing();
     ImGui::Text("Host:");
-    ImGui::InputTextWithHint("##Host", m_config.defaultHostHint.c_str(), &m_hostInput);
+    ImGui::InputTextWithHint("##Host", m_windowConfig.defaultHostHint.c_str(), &m_hostInput);
     ImGui::SameLine();
 
     if (currentWSState == WSC::State::CONNECTED) {
@@ -324,7 +288,7 @@ void GUI::renderMainWindow() {
     ImGui::BeginDisabled(m_websocket == nullptr ||
                          m_websocket->getCurrentState() != WSC::State::CONNECTED);
     ImGui::Text("Messages:");
-    ImGui::BeginChild("Messages", ImVec2(0, m_config.height - 250.0f), true);
+    ImGui::BeginChild("Messages", ImVec2(0, m_windowConfig.height - 250.0f), true);
     if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
         auto messages = m_allMessages->getVector();
         for (const auto &message : messages) {
@@ -382,6 +346,4 @@ void GUI::renderMainWindow() {
         focusOnInput = true;
     }
     ImGui::EndDisabled();
-
-    ImGui::End();
 }
