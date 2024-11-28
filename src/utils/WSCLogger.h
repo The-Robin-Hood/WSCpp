@@ -3,11 +3,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include "WSCCommon.h"
+#include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <utility>
-#include <filesystem>
-#include <cstdlib>  
+
+#include "WSCCommon.h"
 
 // Convenience macros for logging with source location
 #define WSCLog(level, msg) WSCLogger::level(msg, __FILE__, __LINE__, __FUNCTION__)

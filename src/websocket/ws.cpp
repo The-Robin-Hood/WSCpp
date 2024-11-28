@@ -229,7 +229,7 @@ bool WSC::handleDataFrame(int opcode, bool isFinal, const Poco::Buffer<char> &bu
         }
         if (m_dataMessageCallback) {
             m_dataMessageCallback(WSCMessage{static_cast<WSCMessageType>(opcode),
-                                          std::vector<uint8_t>(buffer.begin(), buffer.end())});
+                                             std::vector<uint8_t>(buffer.begin(), buffer.end())});
         }
         m_serverCrashContinuationFrame = 0;
         return true;
@@ -249,8 +249,9 @@ void WSC::handleClose(uint16_t code, const std::string &reason) {
     }
     std::string closePayload = std::to_string(code) + " - " + reason;
     if (m_controlMessageCallback) {
-        m_controlMessageCallback(WSCMessage{
-            WSCMessageType::CLOSE, std::vector<uint8_t>(closePayload.begin(), closePayload.end())});
+        m_controlMessageCallback(
+            WSCMessage{WSCMessageType::CLOSE,
+                       std::vector<uint8_t>(closePayload.begin(), closePayload.end())});
     }
     m_commandQueue->push(Command{"serverClose"});
     m_receiveThreadRunning = false;
