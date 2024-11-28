@@ -72,9 +72,9 @@ inline std::string getBasePath() {
     return basePath;
 }
 
-#ifdef _WIN32
 inline std::vector<char> loadResource(int resourceId, const std::string& resourceType) {
     std::cout << "Loading resource: " << resourceId << " of type: " << resourceType << std::endl;
+#ifdef _WIN32
     HMODULE hModule = GetModuleHandle(NULL);
     std::wstring resourceTypeW(resourceType.begin(), resourceType.end());
     HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(resourceId), resourceTypeW.c_str());
@@ -97,6 +97,7 @@ inline std::vector<char> loadResource(int resourceId, const std::string& resourc
 
     void* pResourceData = LockResource(hLoadedResource);
     return std::vector<char>((char*)pResourceData, (char*)pResourceData + resourceSize);
-}
 #endif
+    return {};
+}
 }

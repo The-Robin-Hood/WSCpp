@@ -70,7 +70,9 @@ namespace WSCpp::UI::Resources {
 		cfg.OversampleH = cfg.OversampleV = 1;
 		cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
 		cfg.FontDataOwnedByAtlas = false;
-
+#ifdef __APPLE__
+		cfg.RasterizerMultiply = 2.0f;
+#endif
 		for (int i = 0; i < fontNames.size(); i++) {
 			for (auto& fontSize : fontSizes) {
 #ifdef _WIN32
@@ -110,7 +112,7 @@ namespace WSCpp::UI::Resources {
 			return false;
 		}
 #else
-		if (!WSCpp::UI::loadTextureFromFile(m_logoPath.c_str(), &m_logoTexture, &width, &height)) {
+		if (!loadTextureFromFile(m_logoPath.c_str(), &m_logoTexture, &width, &height)) {
 			WSCLog(error, "Failed to load texture from file");
 			return false;
 		}

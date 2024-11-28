@@ -13,16 +13,6 @@
 
 #define WCHAR(x) (ImWchar)(x)  // cast a single character to ImWchar - to avoid warnings
 
-// ui.h
-#pragma once
-
-#include <GL/gl.h>
-#include <imgui.h>
-
-#include <map>
-#include <string>
-#include <vector>
-
 namespace WSCpp {
 	namespace UI {
 		namespace Geometry {

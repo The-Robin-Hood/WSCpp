@@ -29,6 +29,12 @@ bool GUI::initWindow() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,1);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
     m_window.reset(glfwCreateWindow(m_windowConfig.width, m_windowConfig.height,
                                     m_windowConfig.title.c_str(), NULL, NULL));
     if (!m_window) {
@@ -53,12 +59,7 @@ bool GUI::initImGui() {
         WSCLog(error, "Failed to initialize ImGui for OpenGL-GLFW");
         return false;
     }
-
-#if defined(__APPLE__)
-    ImGui_ImplOpenGL3_Init("#version 120");
-#else
-    ImGui_ImplOpenGL3_Init("#version 130");
-#endif
+    ImGui_ImplOpenGL3_Init("#version 150");
 
     ImGuiIO &m_io = ImGui::GetIO();
     m_io.IniFilename = nullptr;
