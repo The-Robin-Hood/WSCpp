@@ -1,13 +1,17 @@
+#include "imgui_custom.h"
 #include "ui.h"
 
 namespace WSCpp::UI::Theme {
+
     void setup() {
         WSCLog(debug, "Setting up theme");
         auto& style = ImGui::GetStyle();
         auto& colors = ImGui::GetStyle().Colors;
 
-        colors[ImGuiCol_Button] = ImColor(80, 80, 80, 200);
-        colors[ImGuiCol_ButtonHovered] = ImColor(70, 70, 70, 255);
-        colors[ImGuiCol_ButtonActive] = ImColor(56, 56, 56, 150);
+        colors[ImGuiCol_Header] = ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
+        colors[ImGuiCol_HeaderHovered] =
+            ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
+        colors[ImGuiCol_HeaderActive] =
+            ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
     }
 }  // namespace WSCpp::UI::Theme

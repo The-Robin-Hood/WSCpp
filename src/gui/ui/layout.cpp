@@ -84,8 +84,8 @@ namespace WSCpp::UI::Layout {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 3.0f);
-        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, RGBAtoIV4(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, RGBAtoIV4(21, 21, 21, 255));
+        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, WSCpp::UI::Colors::transparentColor);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, WSCpp::UI::Colors::backgroundColor);
         ImGui::Begin("BaseLayout", nullptr, baseWindowFlags);
         ImGui::PopStyleColor(2);
         ImGui::PopStyleVar(3);
@@ -97,5 +97,23 @@ namespace WSCpp::UI::Layout {
         ImGui::PopFont();
         ImGui::End();
     }
+
+    void DrawBorder(ImRect rect, float thickness, float rounding, float offsetX, float offsetY) {
+        auto min = rect.Min;
+        min.x -= thickness;
+        min.y -= thickness;
+        min.x += offsetX;
+        min.y += offsetY;
+        auto max = rect.Max;
+        max.x += thickness;
+        max.y += thickness;
+        max.x += offsetX;
+        max.y += offsetY;
+
+        auto* drawList = ImGui::GetWindowDrawList();
+        drawList->AddRect(
+            min, max, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_Border)),
+            rounding, 0, thickness);
+    };
 
 }  // namespace WSCpp::UI::Layout

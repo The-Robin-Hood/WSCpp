@@ -2,19 +2,40 @@
 
 namespace WSCpp::UI::Resources {
 
-    bool loadTextureFromMemory(const void* data, size_t data_size, GLuint* out_texture,
-                               int* out_width, int* out_height) {
-        // Load from file
-        int image_width = 0;
-        int image_height = 0;
-        unsigned char* image_data = stbi_load_from_memory(
-            (const unsigned char*)data, (int)data_size, &image_width, &image_height, NULL, 4);
-        if (image_data == NULL) return false;
+    Image::Image(BinaryData& data) {
+        uint32_t width, height;
+        void* decodedData = Decode(data.getData(), data.getSize(), width, height);
+        if (decodedData) {
+            m_Width = width;
+            m_Height = height;
+            m_texture = 0;
+            loadTextureFromMemory(decodedData, m_Width, m_Height);
+            free(decodedData);
+        }
+    }
 
+    Image::~Image() { glDeleteTextures(1, &m_texture); }
+
+    void* Image::Decode(const void* buffer, uint64_t length, uint32_t& outWidth,
+                        uint32_t& outHeight) {
+        int width, height, channels;
+        uint8_t* data = nullptr;
+        uint64_t size = 0;
+
+        data =
+            stbi_load_from_memory((const stbi_uc*)buffer, length, &width, &height, &channels, 4);
+        size = width * height * 4;
+
+        outWidth = width;
+        outHeight = height;
+
+        return data;
+    }
+
+    void Image::loadTextureFromMemory(void* data, int image_width, int image_height) {
         // Create a OpenGL texture identifier
-        GLuint image_texture;
-        glGenTextures(1, &image_texture);
-        glBindTexture(GL_TEXTURE_2D, image_texture);
+        glGenTextures(1, &m_texture);
+        glBindTexture(GL_TEXTURE_2D, m_texture);
 
         // Setup filtering parameters for display
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -23,38 +44,11 @@ namespace WSCpp::UI::Resources {
         // Upload pixels into texture
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA,
-                     GL_UNSIGNED_BYTE, image_data);
-        stbi_image_free(image_data);
-
-        if (out_texture != nullptr) {
-            glDeleteTextures(1, out_texture);
-        }
-
-        *out_texture = image_texture;
-        *out_width = image_width;
-        *out_height = image_height;
-
-        return true;
-    }
-
-    bool loadTextureFromFile(const char* file_name, GLuint* out_texture, int* out_width,
-                             int* out_height) {
-        FILE* f = fopen(file_name, "rb");
-        if (f == NULL) return false;
-        fseek(f, 0, SEEK_END);
-        size_t file_size = (size_t)ftell(f);
-        if (file_size == -1) return false;
-        fseek(f, 0, SEEK_SET);
-        void* file_data = IM_ALLOC(file_size);
-        fread(file_data, 1, file_size, f);
-        bool ret = loadTextureFromMemory(file_data, file_size, out_texture, out_width, out_height);
-        IM_FREE(file_data);
-        return ret;
+                     GL_UNSIGNED_BYTE, data);
     }
 
     bool setupFonts(ImGuiIO& m_io, std::map<std::string, std::map<std::string, ImFont*>>& m_fonts,
-                    const std::string& m_fontsPath,
-                    const std::vector<std::vector<char>>& m_preLoadedfonts) {
+                    std::vector<std::shared_ptr<BinaryData>> m_preLoadedfonts) {
         WSCLog(debug, "Setting up fonts");
         std::vector<int> fontSizes = {12, 14, 16, 20, 24};
         std::vector<std::string> fontNames = {"NotoEmoji", "Inter-Regular", "Inter-SemiBold",
@@ -75,16 +69,9 @@ namespace WSCpp::UI::Resources {
 #endif
         for (int i = 0; i < fontNames.size(); i++) {
             for (auto& fontSize : fontSizes) {
-#ifdef _WIN32
-                ImFont* f =
-                    m_io.Fonts->AddFontFromMemoryTTF((void*)m_preLoadedfonts[i].data(),
-                                                     static_cast<int>(m_preLoadedfonts[i].size()),
-                                                     static_cast<float>(fontSize), &cfg, ranges);
-#else
-                std::string fontPath = m_fontsPath + "/" + fontNames[i] + ".ttf";
-                ImFont* f =
-                    m_io.Fonts->AddFontFromFileTTF(fontPath.c_str(), fontSize, &cfg, ranges);
-#endif
+                ImFont* f = m_io.Fonts->AddFontFromMemoryTTF(
+                    (void*)m_preLoadedfonts[i]->getData(), m_preLoadedfonts[i]->getSize(),
+                    static_cast<float>(fontSize), &cfg, ranges);
                 if (!f) {
                     WSCLog(error, "Failed to load font: " + fontNames[i]);
                     return false;
@@ -101,23 +88,17 @@ namespace WSCpp::UI::Resources {
         return true;
     }
 
-    bool setupLogo(const std::string& m_logoPath, const std::vector<char>& m_preLoadedlogo,
-                   GLuint& m_logoTexture) {
+    bool setupLogo(const BinaryData& m_preLoadedlogo, GLuint& m_logoTexture) {
         WSCLog(debug, "Setting up logo");
-        int width, height;
-#ifdef _WIN32
-        if (!loadTextureFromMemory(m_preLoadedlogo.data(), m_preLoadedlogo.size(), &m_logoTexture,
-                                   &width, &height)) {
-            WSCLog(error, "Failed to load texture from memory");
-            return false;
-        }
-#else
-        if (!loadTextureFromFile(m_logoPath.c_str(), &m_logoTexture, &width, &height)) {
-            WSCLog(error, "Failed to load texture from file");
-            return false;
-        }
-#endif
+
         return true;
     }
+
+    BinaryData::BinaryData(const unsigned char* data, size_t size) : size(size) {
+        this->data = new unsigned char[size];
+        std::memcpy(this->data, data, size);
+    }
+
+    BinaryData::~BinaryData() { delete[] data; }
 
 }  // namespace WSCpp::UI::Resources

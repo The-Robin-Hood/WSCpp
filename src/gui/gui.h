@@ -75,11 +75,7 @@ class GUI {
     const std::string m_fontsPath = m_basePath + "/assets/fonts";
     const std::string m_logoPath = m_imagesPath + "/logo.png";
 
-    GLuint m_logoTexture;
-    const std::vector<char> m_preLoadedlogo = WSCUtils::loadResource(101, "PNG");
-    const std::vector<std::vector<char>> m_preLoadedfonts = {
-        WSCUtils::loadResource(102, "BINARY"), WSCUtils::loadResource(103, "BINARY"),
-        WSCUtils::loadResource(104, "BINARY"), WSCUtils::loadResource(105, "BINARY")};
+    std::shared_ptr<WSCpp::UI::Resources::Image> m_logoImage;
     std::map<std::string, std::map<std::string, ImFont *>> m_fonts;
 
     // Internal methods

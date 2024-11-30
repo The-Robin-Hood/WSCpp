@@ -1,5 +1,7 @@
 #include "gui.h"
 
+#include "./resources/resources.h"
+
 GUI::~GUI() {
     m_allMessages.reset();
     WSCLog(debug, "Destroying GUI");
@@ -65,14 +67,23 @@ bool GUI::initImGui() {
     m_io.IniFilename = nullptr;
     m_io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_DockingEnable;
 
-    if (!WSCpp::UI::Resources::setupFonts(m_io, m_fonts, m_fontsPath, m_preLoadedfonts)) {
-        WSCLog(error, "Failed while setting up fonts");
-        return false;
+    {
+        auto binaryData = WSCpp::UI::Resources::BinaryData(g_logo_bin, g_logo_size);
+        m_logoImage = std::make_shared<WSCpp::UI::Resources::Image>(binaryData);
     }
 
-    if (!WSCpp::UI::Resources::setupLogo(m_logoPath, m_preLoadedlogo, m_logoTexture)) {
-        WSCLog(error, "Failed while setting up logo");
-        return false;
+    {
+        std::vector<std::shared_ptr<WSCpp::UI::Resources::BinaryData>> preLoadedFonts = {
+            std::make_shared<WSCpp::UI::Resources::BinaryData>(g_notoEmoji_bin, g_notoEmoji_size),
+            std::make_shared<WSCpp::UI::Resources::BinaryData>(g_interRegular_bin,
+                                                               g_interRegular_size),
+            std::make_shared<WSCpp::UI::Resources::BinaryData>(g_interSemiBold_bin,
+                                                               g_interSemiBold_size),
+            std::make_shared<WSCpp::UI::Resources::BinaryData>(g_interBold_bin, g_interBold_size)};
+        if (!WSCpp::UI::Resources::setupFonts(m_io, m_fonts, preLoadedFonts)) {
+            WSCLog(error, "Failed while setting up fonts");
+            return false;
+        }
     }
 
     WSCpp::UI::Theme::setup();
@@ -112,7 +123,7 @@ void GUI::titleBar() {
         const ImVec2 logoRectStart = {ImGui::GetItemRectMin().x + logoOffset.x,
                                       ImGui::GetItemRectMin().y + logoOffset.y};
         const ImVec2 logoRectMax = {logoRectStart.x + logoWidth, logoRectStart.y + logoHeight};
-        fgDrawList->AddImage(m_logoTexture, logoRectStart, logoRectMax);
+        fgDrawList->AddImage(m_logoImage->getTexture(), logoRectStart, logoRectMax);
     }
 
     const float buttonsAreaWidth = 50;
@@ -154,7 +165,6 @@ void GUI::titleBar() {
          ImGui::GetFrameHeightWithSpacing()}};
 
     ImGui::BeginGroup();
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, RGBAtoIV4(255, 254, 0, 255));
     if (WSCpp::UI::Layout::beginMenubar(menuBarRect)) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {
@@ -162,7 +172,6 @@ void GUI::titleBar() {
             }
             ImGui::EndMenu();
         }
-
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("About")) {
                 WSCLog(debug, "About clicked");
@@ -171,18 +180,12 @@ void GUI::titleBar() {
         }
         WSCpp::UI::Layout::endMenubar();
     }
-    ImGui::PopStyleColor();
     ImGui::EndGroup();
 
     ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 30.0f, 2.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, RGBAtoIV4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RGBAtoIV4(255, 0, 0, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, RGBAtoIV4(255, 0, 0, 255));
-    // close and minimize button to be drawn above the menubar
-    if (ImGui::SmallButton("X")) {
+    if (ImGui::Button("X")) {
         glfwSetWindowShouldClose(getWindow(), true);
     }
-    ImGui::PopStyleColor(3);
     ImGui::PopFont();
 }
 
@@ -191,8 +194,36 @@ void GUI::render() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    WSCpp::UI::Layout::beginBaseLayout(m_fonts["Inter-Regular"]["14"]);
+    WSCpp::UI::Layout::beginBaseLayout(m_fonts["Inter-SemiBold"]["14"]);
     titleBar();
+
+    ImGui::SetCursorPosX(10.0f);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 50.0f);
+
+    {
+        if (WSCpp::UI::Component::Button({.label = "Primary Button"})) {
+            WSCLog(debug, "Primary Button Clicked");
+        }
+        if (WSCpp::UI::Component::Button(
+                {.label = "Destructive Button",
+                 .variant = WSCpp::UI::Component::variants::destructive})) {
+            WSCLog(debug, "Destructive Button Clicked");
+        }
+        if (WSCpp::UI::Component::Button({.label = "Secondary Button",
+                                          .variant = WSCpp::UI::Component::variants::secondary})) {
+            WSCLog(debug, "Secondary Button Clicked");
+        }
+        if (WSCpp::UI::Component::Button(
+                {.label = "Outline Button", .variant = WSCpp::UI::Component::variants::outline})) {
+            WSCLog(debug, "Outline Button Clicked");
+        }
+        if (WSCpp::UI::Component::Button(
+                {.label = "Ghost Button", .variant = WSCpp::UI::Component::variants::ghost})) {
+            WSCLog(debug, "Ghost Button Clicked");
+        }
+    }
+
+    // ImGui::ShowDemoWindow();
     // renderMainWindow();
     // renderStatusBar();
     WSCpp::UI::Layout::endBaseLayout();
