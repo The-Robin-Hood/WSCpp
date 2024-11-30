@@ -222,6 +222,19 @@ void GUI::render() {
                 {.label = "Ghost Button", .variant = WSCpp::UI::Component::variants::ghost})) {
             WSCLog(debug, "Ghost Button Clicked");
         }
+        if (WSCpp::UI::Component::Button({.label = "Disabed Button",
+                                          .variant = WSCpp::UI::Component::variants::primary,
+                                          .disabled = true})) {
+            WSCLog(debug, "Disabled Button Clicked");
+        }
+    }
+
+    {
+        std::string normalText = "";
+        WSCpp::UI::Component::Input({.label = "Normal Input",
+                                     .hint = "Normal Input Field with hint text (default setting)",
+                                     .inputText = normalText,
+                                     .size = ImVec2(400.0f, 0.0f)});
     }
 
     // ImGui::ShowDemoWindow();

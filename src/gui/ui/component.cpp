@@ -68,4 +68,31 @@ namespace WSCpp::UI::Component {
         ImGui::EndDisabled();
         return clicked;
     }
+
+    void Input(const InputConfig& args) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, args.frameRounding);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, args.framePadding);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, args.frameBorderSize);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, Colors::transparentColor);
+
+        ImGui::BeginDisabled(args.disabled);
+        ImGui::SetNextItemWidth(args.size.x);
+        std::string hideLabel = "##" + std::string(args.label);
+        std::replace(hideLabel.begin(), hideLabel.end(), ' ', '_');
+        if (args.multiline && args.size.y > 0.0f) {
+            ImGui::InputTextMultiline(
+                hideLabel.c_str(), &args.inputText[0], args.inputText.capacity() + 1,
+                ImVec2(args.size.x,
+                       (args.size.y != 0 ? ((ImGui::GetTextLineHeight() * 5) + 7) : args.size.y)),
+                args.flags);
+        } else {
+            ImGui::InputTextWithHint(hideLabel.c_str(), args.hint, &args.inputText[0],
+                                     args.inputText.capacity() + 1, args.flags);
+        }
+
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor();
+        ImGui::EndDisabled();
+    }
+
 }  // namespace WSCpp::UI::Component

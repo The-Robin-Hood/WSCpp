@@ -111,7 +111,22 @@ namespace WSCpp {
                 variants variant = variants::primary;
                 bool disabled = false;
             };
+            struct InputConfig {
+                const char* label;
+                const char* hint = "";
+                std::string& inputText;
+                ImVec2 size = ImVec2(200.0f, 100.0f);
+                bool multiline = false;
+                float frameRounding = 3.0f;
+                ImVec2 framePadding = ImVec2(12.0f, 8.0f);
+                float frameBorderSize = 1.0f;
+                ImU32 frameBgColor = Colors::transparentColor;
+                bool disabled = false;
+                ImGuiInputTextFlags flags = 0;
+            };
+
             bool Button(const ButtonConfig& args);
+            void Input(const InputConfig& args);
         }  // namespace Component
 
     }  // namespace UI
