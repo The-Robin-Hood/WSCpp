@@ -3,6 +3,7 @@
 #include "./resources/resources.h"
 
 GUI::~GUI() {
+    m_logoImage.reset();
     m_allMessages.reset();
     WSCLog(debug, "Destroying GUI");
 }

@@ -23,8 +23,8 @@ namespace WSCpp::UI::Resources {
         uint64_t size = 0;
 
         data =
-            stbi_load_from_memory((const stbi_uc*)buffer, length, &width, &height, &channels, 4);
-        size = width * height * 4;
+            stbi_load_from_memory((const stbi_uc*)buffer, (int)length, &width, &height, &channels, 4);
+        size = static_cast<uint64_t>(width * height * 4);
 
         outWidth = width;
         outHeight = height;
@@ -70,7 +70,7 @@ namespace WSCpp::UI::Resources {
         for (int i = 0; i < fontNames.size(); i++) {
             for (auto& fontSize : fontSizes) {
                 ImFont* f = m_io.Fonts->AddFontFromMemoryTTF(
-                    (void*)m_preLoadedfonts[i]->getData(), m_preLoadedfonts[i]->getSize(),
+                    (void*)m_preLoadedfonts[i]->getData(), (int)m_preLoadedfonts[i]->getSize(),
                     static_cast<float>(fontSize), &cfg, ranges);
                 if (!f) {
                     WSCLog(error, "Failed to load font: " + fontNames[i]);
@@ -85,12 +85,6 @@ namespace WSCpp::UI::Resources {
             WSCLog(error, "Failed to build fonts");
             return false;
         }
-        return true;
-    }
-
-    bool setupLogo(const BinaryData& m_preLoadedlogo, GLuint& m_logoTexture) {
-        WSCLog(debug, "Setting up logo");
-
         return true;
     }
 
