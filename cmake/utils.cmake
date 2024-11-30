@@ -1,5 +1,5 @@
 macro(setup_cmake_configs)
-    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED True)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/$<CONFIG>)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -61,10 +61,6 @@ endfunction()
 function(configure_assets TARGET)
     set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     set(ASSETS_DEST_DIR "$<TARGET_FILE_DIR:${TARGET}>/assets")
-
-    if(WIN32)
-        target_sources(WSCpp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/resources.rc)
-    endif()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR NOT WIN32)
         add_custom_command(

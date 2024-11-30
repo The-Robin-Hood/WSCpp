@@ -1,7 +1,0 @@
-#include <windows.h>
-
-101 PNG "../assets/images/logo.png"
-102 BINARY "../assets/fonts/NotoEmoji.ttf"
-103 BINARY "../assets/fonts/Inter-Regular.ttf"
-104 BINARY "../assets/fonts/Inter-SemiBold.ttf"
-105 BINARY "../assets/fonts/Inter-Bold.ttf"
