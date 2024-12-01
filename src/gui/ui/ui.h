@@ -110,7 +110,12 @@ namespace WSCpp {
 
             struct ButtonProps {
                 const char* label;
+                float frameRounding = 5.0f;
+                ImVec2 framePadding = ImVec2(12.0f, 8.0f);
                 variants variant = variants::primary;
+                float frameBorderSize = variant == variants::outline ? 1.0f : 0.0f;
+                ImU32 frameBgColor = variant == variants::outline ? Colors::secondaryColor
+                                                                  : Colors::transparentColor;
                 bool disabled = false;
             };
             struct InputProps {

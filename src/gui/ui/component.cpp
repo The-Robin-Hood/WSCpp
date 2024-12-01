@@ -3,66 +3,59 @@
 namespace WSCpp::UI::Component {
     bool Button(const ButtonProps& props) {
         bool clicked = false;
-
-        auto& style = ImGui::GetStyle();
+        unsigned int buttonColor, buttonHoveredColor, textColor;
 
         ImGui::BeginDisabled(props.disabled);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 8.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, props.frameRounding);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, props.framePadding);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, props.frameBorderSize);
+
         switch (props.variant) {
-            case variants::primary: {
-                ImGui::PushStyleColor(ImGuiCol_Button, WSCpp::UI::Colors::primaryColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                      adjustTransparency(WSCpp::UI::Colors::primaryColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                                      adjustTransparency(WSCpp::UI::Colors::primaryColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_Text, WSCpp::UI::Colors::text_primaryColor);
+            case variants::primary:
+                buttonColor = WSCpp::UI::Colors::primaryColor;
+                buttonHoveredColor = adjustTransparency(buttonColor, 90);
+                textColor = WSCpp::UI::Colors::text_primaryColor;
                 break;
-            }
-            case variants::secondary: {
-                ImGui::PushStyleColor(ImGuiCol_Button, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                      adjustTransparency(WSCpp::UI::Colors::secondaryColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                                      adjustTransparency(WSCpp::UI::Colors::secondaryColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_Text, WSCpp::UI::Colors::text_secondaryColor);
+
+            case variants::secondary:
+                buttonColor = WSCpp::UI::Colors::secondaryColor;
+                buttonHoveredColor = adjustTransparency(buttonColor, 90);
+                textColor = WSCpp::UI::Colors::text_secondaryColor;
                 break;
-            }
-            case variants::destructive: {
-                ImGui::PushStyleColor(ImGuiCol_Button, WSCpp::UI::Colors::destructiveColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                      adjustTransparency(WSCpp::UI::Colors::destructiveColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                                      adjustTransparency(WSCpp::UI::Colors::destructiveColor, 90));
-                ImGui::PushStyleColor(ImGuiCol_Text, WSCpp::UI::Colors::text_destructiveColor);
+
+            case variants::destructive:
+                buttonColor = WSCpp::UI::Colors::destructiveColor;
+                buttonHoveredColor = adjustTransparency(buttonColor, 90);
+                textColor = WSCpp::UI::Colors::text_destructiveColor;
                 break;
-            }
-            case variants::outline: {
-                style.FrameBorderSize = 1.0f;
-                ImGui::PushStyleColor(ImGuiCol_Border, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_Button, WSCpp::UI::Colors::transparentColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_Text, WSCpp::UI::Colors::text_secondaryColor);
+
+            case variants::outline:
+                buttonColor = WSCpp::UI::Colors::transparentColor;
+                buttonHoveredColor = WSCpp::UI::Colors::secondaryColor;
+                textColor = WSCpp::UI::Colors::text_secondaryColor;
                 break;
-            }
-            case variants::ghost: {
-                ImGui::PushStyleColor(ImGuiCol_Button, WSCpp::UI::Colors::transparentColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, WSCpp::UI::Colors::secondaryColor);
-                ImGui::PushStyleColor(ImGuiCol_Text, WSCpp::UI::Colors::text_secondaryColor);
+
+            case variants::ghost:
+                buttonColor = WSCpp::UI::Colors::transparentColor;
+                buttonHoveredColor = WSCpp::UI::Colors::secondaryColor;
+                textColor = WSCpp::UI::Colors::text_secondaryColor;
                 break;
-            }
+            default:
+                throw std::runtime_error("Invalid button variant");
         }
 
+        ImGui::PushStyleColor(ImGuiCol_Button, buttonColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, buttonHoveredColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, buttonHoveredColor);
+        ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+        ImGui::PushStyleColor(ImGuiCol_Border, props.frameBgColor);
+
         clicked = ImGui::Button(props.label);
-        ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor(4);
-        if (variants::outline == props.variant) {
-            style.FrameBorderSize = 0.0f;
-            ImGui::PopStyleColor();
-        }
+
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(3);
         ImGui::EndDisabled();
+
         return clicked;
     }
 
@@ -103,7 +96,6 @@ namespace WSCpp::UI::Component {
         if (ImGui::BeginPopupModal(props.id.c_str(), NULL,
                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar |
                                        ImGuiWindowFlags_NoMove)) {
-            
             ImGui::PushFont(fontsMap->at("Inter-Bold").at("20"));
             ImGui::TextWrapped("%s", props.title.c_str());
             ImGui::PopFont();
@@ -121,7 +113,7 @@ namespace WSCpp::UI::Component {
             cancelButtonSize.x += ImGui::GetStyle().FramePadding.x * 2;
             cancelButtonSize.y += ImGui::GetStyle().FramePadding.y * 2;
             ImVec2 confirmButtonSize = ImGui::CalcTextSize(props.confirmButtonLabel.c_str());
-            confirmButtonSize.x += ImGui::GetStyle().FramePadding.x * 2; 
+            confirmButtonSize.x += ImGui::GetStyle().FramePadding.x * 2;
             confirmButtonSize.y += ImGui::GetStyle().FramePadding.y * 2;
 
             float totalButtonWidth =
