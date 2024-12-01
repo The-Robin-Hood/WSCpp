@@ -258,6 +258,23 @@ void GUI::render() {
                                      .size = ImVec2(400.0f, 0.0f)});
     }
 
+    {
+        if (WSCpp::UI::Component::Button(
+                {.label = "Delete", .variant = WSCpp::UI::Component::variants::destructive}))
+            ImGui::OpenPopup("id");
+
+        WSCpp::UI::Component::AlertDialog(
+            {.id = "id",
+             .title = "Delete all files?",
+             .message =
+                 "Do you want to delete all files? This action cannot be undone. Please confirm.",
+             .cancelButtonLabel = "Cancel",
+             .confirmButtonLabel = "Confirm",
+             .confirmButtonVariant = WSCpp::UI::Component::variants::destructive,
+             .onConfirm = []() { printf("Files deleted!\n"); },
+             .onCancel = []() { printf("Cancelled.\n"); }});
+    }
+
     // ImGui::ShowDemoWindow();
     // renderMainWindow();
     // renderStatusBar();

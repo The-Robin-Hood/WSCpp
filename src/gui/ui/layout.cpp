@@ -114,6 +114,5 @@ namespace WSCpp::UI::Layout {
         drawList->AddRect(
             min, max, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_Border)),
             rounding, 0, thickness);
-    };
-
+    }
 }  // namespace WSCpp::UI::Layout

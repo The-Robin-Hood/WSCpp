@@ -15,5 +15,7 @@ namespace WSCpp::UI::Theme {
             ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
         colors[ImGuiCol_HeaderActive] =
             ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
+        colors[ImGuiCol_ModalWindowDimBg] =
+            ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::backgroundColor, 75));
     }
 }  // namespace WSCpp::UI::Theme

@@ -20,11 +20,9 @@ namespace WSCpp::UI::Resources {
                         uint32_t& outHeight) {
         int width, height, channels;
         uint8_t* data = nullptr;
-        uint64_t size = 0;
 
         data =
             stbi_load_from_memory((const stbi_uc*)buffer, (int)length, &width, &height, &channels, 4);
-        size = static_cast<uint64_t>(width * height * 4);
 
         outWidth = width;
         outHeight = height;
@@ -85,6 +83,7 @@ namespace WSCpp::UI::Resources {
             WSCLog(error, "Failed to build fonts");
             return false;
         }
+        fontsMap = &m_fonts;
         return true;
     }
 

@@ -16,6 +16,7 @@
 
 namespace WSCpp {
     namespace UI {
+        inline std::map<std::string, std::map<std::string, ImFont*>>* fontsMap = nullptr;
         namespace Geometry {
             ImRect getItemRect();
             ImRect rectExpanded(const ImRect& rect, float x, float y);
@@ -106,12 +107,13 @@ namespace WSCpp {
                 ghost,
             };
             enum class sizes { small, normal, large, icon };
-            struct ButtonConfig {
+
+            struct ButtonProps {
                 const char* label;
                 variants variant = variants::primary;
                 bool disabled = false;
             };
-            struct InputConfig {
+            struct InputProps {
                 const char* label;
                 const char* hint = "";
                 std::string& inputText;
@@ -124,9 +126,21 @@ namespace WSCpp {
                 bool disabled = false;
                 ImGuiInputTextFlags flags = 0;
             };
+            struct AlertDialogProps {
+                std::string id;
+                std::string title;
+                std::string message;
+                std::string cancelButtonLabel = "Cancel";
+                std::string confirmButtonLabel = "OK";
+                variants confirmButtonVariant = variants::primary;
+                variants cancelButtonVariant = variants::outline;
+                std::function<void()> onConfirm = nullptr;
+                std::function<void()> onCancel = nullptr;
+            };
 
-            bool Button(const ButtonConfig& args);
-            void Input(const InputConfig& args);
+            bool Button(const ButtonProps& props);
+            void Input(const InputProps& props);
+            void AlertDialog(const AlertDialogProps& props);
         }  // namespace Component
 
     }  // namespace UI
