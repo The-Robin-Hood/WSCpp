@@ -45,6 +45,18 @@ bool GUI::initWindow() {
         WSCLog(error, "Failed to create window");
         return false;
     }
+
+    GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+    if (!monitor) {
+        WSCLog(error, "Failed to get primary monitor\n");
+        glfwDestroyWindow(getWindow());
+        glfwTerminate();
+        return false;
+    }
+    const GLFWvidmode *videoMode = glfwGetVideoMode(monitor);
+    int xpos = (videoMode->width - m_windowConfig.width) / 2;
+    int ypos = (videoMode->height - m_windowConfig.height) / 3;
+    glfwSetWindowPos(getWindow(), xpos, ypos);
     glfwMakeContextCurrent(getWindow());
     glfwSwapInterval(m_windowConfig.vsync);
     return true;
@@ -124,7 +136,16 @@ void GUI::titleBar() {
         const ImVec2 logoRectStart = {ImGui::GetItemRectMin().x + logoOffset.x,
                                       ImGui::GetItemRectMin().y + logoOffset.y};
         const ImVec2 logoRectMax = {logoRectStart.x + logoWidth, logoRectStart.y + logoHeight};
+        ImVec4 dimColor = ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg];
         fgDrawList->AddImage(m_logoImage->getTexture(), logoRectStart, logoRectMax);
+        if (ImGui::IsMouseHoveringRect(logoRectStart, logoRectMax)) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            // TODO: Add click event for logo
+        }
+        const bool dim_bg_for_modal = (ImGui::GetTopMostPopupModal() != NULL);
+        if (dim_bg_for_modal) {
+            fgDrawList->AddRectFilled(logoRectStart, logoRectMax,  ImGui::GetColorU32(ImGuiCol_ModalWindowDimBg));
+        }
     }
 
     const float buttonsAreaWidth = 50;
