@@ -37,6 +37,8 @@ namespace WSCpp {
             void DrawBorder(ImRect rect, float thickness, float rounding, float offsetX,
                             float offsetY);
 
+            void DrawIcon(const GLuint texture, float buttonWidth, float buttonHeight,
+                          float iconWidth, float iconHeight);
         }  // namespace Layout
 
         namespace Resources {

@@ -76,6 +76,7 @@ class GUI {
     const std::string m_logoPath = m_imagesPath + "/logo.png";
 
     std::shared_ptr<WSCpp::UI::Resources::Image> m_logoImage;
+    std::map<std::string, std::shared_ptr<WSCpp::UI::Resources::Image>> m_icons;
     std::map<std::string, std::map<std::string, ImFont *>> m_fonts;
 
     // Internal methods

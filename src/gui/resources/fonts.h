@@ -1,5 +1,4 @@
 #include "interBold.h"
 #include "interRegular.h"
 #include "interSemiBold.h"
-#include "logo.h"
 #include "notoEmoji.h"

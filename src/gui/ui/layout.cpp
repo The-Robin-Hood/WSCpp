@@ -115,4 +115,16 @@ namespace WSCpp::UI::Layout {
             min, max, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_Border)),
             rounding, 0, thickness);
     }
+
+    void DrawIcon(const GLuint texture, float buttonWidth, float buttonHeight, float iconWidth,
+                  float iconHeight) {
+        const float padX = (buttonWidth - iconWidth) / 2.0f;
+        const float padY = (buttonHeight - iconHeight) / 2.0f;
+        ImRect rects =
+            ImRect(ImVec2(ImGui::GetItemRectMin().x + padX, ImGui::GetItemRectMin().y + padY),
+                   ImVec2(ImGui::GetItemRectMin().x + padX + iconWidth,
+                          ImGui::GetItemRectMin().y + padY + iconHeight));
+        auto* drawList = ImGui::GetForegroundDrawList();
+        drawList->AddImage(texture, rects.Min, rects.Max);
+    }
 }  // namespace WSCpp::UI::Layout

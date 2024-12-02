@@ -1,6 +1,8 @@
 #include "gui.h"
 
-#include "./resources/resources.h"
+#include "./resources/fonts.h"
+#include "./resources/icons.h"
+#include "./resources/logo.h"
 
 GUI::~GUI() {
     m_logoImage.reset();
@@ -99,6 +101,21 @@ bool GUI::initImGui() {
         }
     }
 
+    {
+        auto closeWindowsIcon =
+            WSCpp::UI::Resources::BinaryData(g_closeWindowsIcon_bin, g_closeWindowsIcon_size);
+        auto minimizeWindowsIcon = WSCpp::UI::Resources::BinaryData(g_minimizeWindowsIcon_bin,
+                                                                    g_minimizeWindowsIcon_size);
+        auto defaultWindowsIcon =
+            WSCpp::UI::Resources::BinaryData(g_defaultWindowsIcon_bin, g_defaultWindowsIcon_size);
+        m_icons["closeWindowsIcon"] =
+            std::make_shared<WSCpp::UI::Resources::Image>(closeWindowsIcon);
+        m_icons["minimizeWindowsIcon"] =
+            std::make_shared<WSCpp::UI::Resources::Image>(minimizeWindowsIcon);
+        m_icons["defaultWindowsIcon"] =
+            std::make_shared<WSCpp::UI::Resources::Image>(defaultWindowsIcon);
+    }
+
     WSCpp::UI::Theme::setup();
     return true;
 }
@@ -144,7 +161,8 @@ void GUI::titleBar() {
         }
         const bool dim_bg_for_modal = (ImGui::GetTopMostPopupModal() != NULL);
         if (dim_bg_for_modal) {
-            fgDrawList->AddRectFilled(logoRectStart, logoRectMax,  ImGui::GetColorU32(ImGuiCol_ModalWindowDimBg));
+            fgDrawList->AddRectFilled(logoRectStart, logoRectMax,
+                                      ImGui::GetColorU32(ImGuiCol_ModalWindowDimBg));
         }
     }
 
@@ -204,9 +222,37 @@ void GUI::titleBar() {
     }
     ImGui::EndGroup();
 
-    ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 30.0f, 2.0f));
-    if (ImGui::Button("X")) {
-        glfwSetWindowShouldClose(getWindow(), true);
+//   Setting up the close and minimize buttons
+    ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 55.0f, windowPadding.y));
+    const float buttonWidth = 20.0f;
+    const float buttonHeight = 20.0f;
+
+    {
+        if (ImGui::InvisibleButton("Minimize", ImVec2(buttonWidth, buttonHeight))) {
+            glfwIconifyWindow(getWindow());
+        }
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("minimizeWindowsIcon")->getTexture(),
+                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+        } else {
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(),
+                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+        }
+    }
+
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 3.0f);
+    {
+        if (ImGui::InvisibleButton("Close", ImVec2(buttonWidth, buttonHeight))) {
+            glfwSetWindowShouldClose(getWindow(), GLFW_TRUE);
+        }
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("closeWindowsIcon")->getTexture(), buttonWidth,
+                                        buttonHeight, 18.0f, 18.0f);
+        } else {
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(),
+                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+        }
     }
     ImGui::PopFont();
 }
