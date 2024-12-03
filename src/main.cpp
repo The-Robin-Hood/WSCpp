@@ -14,6 +14,7 @@ int main() {
 
     while (!gui.shouldClose()) {
         glfwPollEvents();
+        gui.events();
         gui.update();
         gui.render();
         glfwSwapBuffers(gui.getWindow());

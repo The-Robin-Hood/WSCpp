@@ -7,6 +7,8 @@
 
 #include <memory>
 #include <string>
+#include <functional>
+#include <queue>
 
 #include "WSCLogger.h"
 #include "imgui.h"
@@ -39,6 +41,7 @@ class GUI {
     GUI &operator=(const GUI &) = delete;
 
     bool init();
+    void events();
     void render();
     void update();
     void closeGUI();
@@ -69,6 +72,8 @@ class GUI {
     std::unique_ptr<MessageQueue> m_allMessages;
     std::string m_hostInput;
     std::string m_sendMessageInput;
+    std::mutex m_eventQueueMutex;
+    std::queue<std::function<void()>> m_eventQueue;
 
     const std::string m_basePath = WSCUtils::getBasePath();
     const std::string m_imagesPath = m_basePath + "/assets/images";

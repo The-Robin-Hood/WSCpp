@@ -127,6 +127,16 @@ void GUI::closeGUI() {
     ImGui::DestroyContext();
 }
 
+void GUI::events() {
+    std::scoped_lock<std::mutex> lock(m_eventQueueMutex);
+    while (m_eventQueue.size() > 0) {
+        auto &func = m_eventQueue.front();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        func();
+        m_eventQueue.pop();
+    }
+}
+
 void GUI::update() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -222,36 +232,37 @@ void GUI::titleBar() {
     }
     ImGui::EndGroup();
 
-//   Setting up the close and minimize buttons
-    ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 55.0f, windowPadding.y));
-    const float buttonWidth = 20.0f;
-    const float buttonHeight = 20.0f;
+    //   Setting up the close and minimize buttons
+    const float btnHW = 20.0f;
+    const float icnHW = 16.0f;
 
+    ImGui::SetCursorPos(
+        ImVec2(ImGui::GetWindowWidth() - windowPadding.x - (icnHW * 2), windowPadding.y / 2));
     {
-        if (ImGui::InvisibleButton("Minimize", ImVec2(buttonWidth, buttonHeight))) {
-            glfwIconifyWindow(getWindow());
+        if (ImGui::InvisibleButton("Minimize", ImVec2(btnHW, btnHW))) {
+            m_eventQueue.push([window = getWindow()]() { glfwIconifyWindow(window); });
         }
         if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
-            WSCpp::UI::Layout::DrawIcon(m_icons.at("minimizeWindowsIcon")->getTexture(),
-                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("minimizeWindowsIcon")->getTexture(), btnHW,
+                                        btnHW, icnHW, icnHW);
         } else {
-            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(),
-                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(), btnHW,
+                                        btnHW, icnHW, icnHW);
         }
     }
 
     ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 3.0f);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 10.0f);
     {
-        if (ImGui::InvisibleButton("Close", ImVec2(buttonWidth, buttonHeight))) {
+        if (ImGui::InvisibleButton("Close", ImVec2(btnHW, btnHW))) {
             glfwSetWindowShouldClose(getWindow(), GLFW_TRUE);
         }
         if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
-            WSCpp::UI::Layout::DrawIcon(m_icons.at("closeWindowsIcon")->getTexture(), buttonWidth,
-                                        buttonHeight, 18.0f, 18.0f);
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("closeWindowsIcon")->getTexture(), btnHW, btnHW,
+                                        icnHW, icnHW);
         } else {
-            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(),
-                                        buttonWidth, buttonHeight, 18.0f, 18.0f);
+            WSCpp::UI::Layout::DrawIcon(m_icons.at("defaultWindowsIcon")->getTexture(), btnHW,
+                                        btnHW, icnHW, icnHW);
         }
     }
     ImGui::PopFont();
