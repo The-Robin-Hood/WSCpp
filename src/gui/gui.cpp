@@ -149,7 +149,9 @@ void GUI::titleBar() {
 
     ImGui::PushFont(m_fonts["Inter-Bold"]["16"]);
     auto *fgDrawList = ImGui::GetForegroundDrawList();
-    const float logoHorizontalOffset = 35.0f + windowPadding.x;
+    const float logoWidth = 45.0f;
+    const float logoHeight = 45.0f;
+    const float logoHorizontalOffset = logoWidth + windowPadding.x + 10.0f;
     const ImVec2 titlebarMin = ImVec2(0.0f, 0.0f);
     const ImVec2 titlebarMax = {
         ImGui::GetCursorScreenPos().x + ImGui::GetWindowWidth() - windowPadding.y,
@@ -157,8 +159,6 @@ void GUI::titleBar() {
 
     ImGui::SetCursorPos(ImVec2(0.0f, 0.0f));
     {
-        const float logoWidth = 40.0f;
-        const float logoHeight = 40.0f;
         const ImVec2 logoOffset(windowPadding.x, windowPadding.y);
         const ImVec2 logoRectStart = {ImGui::GetItemRectMin().x + logoOffset.x,
                                       ImGui::GetItemRectMin().y + logoOffset.y};
@@ -176,28 +176,24 @@ void GUI::titleBar() {
         }
     }
 
-    const float buttonsAreaWidth = 50;
+    const float buttonsAreaWidth = 40;
     {
-        // Get the current window's position and the mouse position
+        // Dragging the window with custom title bar
         ImVec2 windowPos = ImGui::GetWindowPos();
         ImVec2 mousePos = ImGui::GetMousePos();
 
-        // Static variables to maintain dragging state across frames
         static bool isDragging = false;
         static ImVec2 dragOffset;
 
-        // Check if the mouse is in the drag zone
         bool isMouseInDragZone = mousePos.x >= titlebarMin.x &&
                                  mousePos.x <= titlebarMax.x - buttonsAreaWidth &&
                                  mousePos.y >= titlebarMin.y && mousePos.y <= titlebarMax.y;
 
-        // Start dragging
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && isMouseInDragZone) {
             isDragging = true;
             dragOffset = ImVec2(mousePos.x - windowPos.x, mousePos.y - windowPos.y);
         }
 
-        // Continue dragging
         if (isDragging && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             int newX = (int)(mousePos.x - dragOffset.x);
             int newY = (int)(mousePos.y - dragOffset.y);
@@ -208,7 +204,7 @@ void GUI::titleBar() {
             isDragging = false;
         }
     }
-    ImGui::SetCursorPos(ImVec2(logoHorizontalOffset * 1.3, 0.0f));
+    ImGui::SetCursorPos(ImVec2(logoHorizontalOffset, 0.0f));
     const ImRect menuBarRect = {
         ImGui::GetCursorPos(),
         {ImGui::GetContentRegionAvail().x + ImGui::GetCursorScreenPos().x - 30.0f,
@@ -266,6 +262,56 @@ void GUI::titleBar() {
         }
     }
     ImGui::PopFont();
+    ImGui::SetCursorPos(ImVec2(windowPadding.x, windowPadding.y + logoHeight));
+}
+
+void GUI::tabBar() {
+    ImGui::PushStyleColor(
+        ImGuiCol_ButtonHovered,
+        ImGui::ColorConvertU32ToFloat4(adjustTransparency(WSCpp::UI::Colors::primaryColor, 10)));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::ColorConvertU32ToFloat4(adjustTransparency(
+                                                     WSCpp::UI::Colors::primaryColor, 10)));
+    const ImVec2 windowPadding = ImGui::GetCurrentWindow()->WindowPadding;
+    const float logoHorizontalOffset = 45.0f + windowPadding.x + 10.0f;
+    ImGui::SetCursorPos(ImVec2(logoHorizontalOffset, ImGui::GetCursorPosY() + 5.0f));
+
+    static ImVector<int> active_tabs;
+    static int next_tab_id = 0;
+    if (next_tab_id == 0) {
+        active_tabs.push_back(next_tab_id++);
+        active_tabs.push_back(next_tab_id++);
+    }
+
+    static ImGuiTabBarFlags tab_bar_flags =
+        ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable |
+        ImGuiTabBarFlags_FittingPolicyResizeDown | ImGuiTabBarFlags_FittingPolicyScroll;
+    tab_bar_flags &= ~(ImGuiTabBarFlags_FittingPolicyMask_ ^ ImGuiTabBarFlags_FittingPolicyScroll);
+    if (active_tabs.size() > 10) {
+        tab_bar_flags |= ImGuiTabBarFlags_TabListPopupButton;
+    } else {
+        tab_bar_flags &= ~ImGuiTabBarFlags_TabListPopupButton;
+    }
+    if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags)) {
+        // if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+        //     active_tabs.push_back(next_tab_id++);
+
+        for (int n = 0; n < active_tabs.Size;) {
+            bool open = true;
+            char name[16];
+            snprintf(name, IM_ARRAYSIZE(name), "%04d", active_tabs[n]);
+            if (ImGui::BeginTabItem(name, &open, ImGuiTabItemFlags_None)) {
+                ImGui::Text("This is the %s tab!", name);
+                ImGui::EndTabItem();
+            }
+
+            if (!open)
+                active_tabs.erase(active_tabs.Data + n);
+            else
+                n++;
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::PopStyleColor(2);
 }
 
 void GUI::render() {
@@ -275,66 +321,15 @@ void GUI::render() {
 
     WSCpp::UI::Layout::beginBaseLayout(m_fonts["Inter-SemiBold"]["14"]);
     titleBar();
+    // tabBar();
 
-    ImGui::SetCursorPosX(10.0f);
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 50.0f);
-
-    {
-        if (WSCpp::UI::Component::Button({.label = "Primary Button"})) {
-            WSCLog(debug, "Primary Button Clicked");
-        }
-        if (WSCpp::UI::Component::Button(
-                {.label = "Destructive Button",
-                 .variant = WSCpp::UI::Component::variants::destructive})) {
-            WSCLog(debug, "Destructive Button Clicked");
-        }
-        if (WSCpp::UI::Component::Button({.label = "Secondary Button",
-                                          .variant = WSCpp::UI::Component::variants::secondary})) {
-            WSCLog(debug, "Secondary Button Clicked");
-        }
-        if (WSCpp::UI::Component::Button(
-                {.label = "Outline Button", .variant = WSCpp::UI::Component::variants::outline})) {
-            WSCLog(debug, "Outline Button Clicked");
-        }
-        if (WSCpp::UI::Component::Button(
-                {.label = "Ghost Button", .variant = WSCpp::UI::Component::variants::ghost})) {
-            WSCLog(debug, "Ghost Button Clicked");
-        }
-        if (WSCpp::UI::Component::Button({.label = "Disabed Button",
-                                          .variant = WSCpp::UI::Component::variants::primary,
-                                          .disabled = true})) {
-            WSCLog(debug, "Disabled Button Clicked");
-        }
+    if (m_websockets.find("default") == m_websockets.end()){
+        m_websockets["default"] = std::make_shared<websocketConnection>();
     }
-
-    {
-        std::string normalText = "";
-        WSCpp::UI::Component::Input({.label = "Normal Input",
-                                     .hint = "Normal Input Field with hint text (default setting)",
-                                     .inputText = normalText,
-                                     .size = ImVec2(400.0f, 0.0f)});
-    }
-
-    {
-        if (WSCpp::UI::Component::Button(
-                {.label = "Delete", .variant = WSCpp::UI::Component::variants::destructive}))
-            ImGui::OpenPopup("id");
-
-        WSCpp::UI::Component::AlertDialog(
-            {.id = "id",
-             .title = "Delete all files?",
-             .message =
-                 "Do you want to delete all files? This action cannot be undone. Please confirm.",
-             .cancelButtonLabel = "Cancel",
-             .confirmButtonLabel = "Confirm",
-             .confirmButtonVariant = WSCpp::UI::Component::variants::destructive,
-             .onConfirm = []() { printf("Files deleted!\n"); },
-             .onCancel = []() { printf("Cancelled.\n"); }});
-    }
+    connectionScreen(m_websockets["default"]);
 
     // ImGui::ShowDemoWindow();
-    // renderMainWindow();
-    // renderStatusBar();
+    // WSCpp::UI::Component::showDemoUIComponents();
     WSCpp::UI::Layout::endBaseLayout();
 
     // Render ImGui
@@ -343,148 +338,4 @@ void GUI::render() {
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
     glfwMakeContextCurrent(getWindow());
-}
-
-void GUI::renderStatusBar() {
-    // Create status bar at the bottom of the screen
-    const float statusBarHeight = 30.0f;
-    ImGui::SetCursorPosY(ImGui::GetMainViewport()->Size.y - statusBarHeight);
-    WSC::State currentWSState =
-        m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
-    ImGui::Text("Status : ");
-    ImGui::SameLine();
-    if (currentWSState == WSC::State::UNINITIALIZED)
-        ImGui::TextColored(RGBAtoIV4(200, 200, 200, 0.5f), "Uninitialized");
-    else if (currentWSState == WSC::State::CONNECTING)
-        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting");
-    else if (currentWSState == WSC::State::DISCONNECTING)
-        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Disconnecting");
-    else if (currentWSState == WSC::State::DISCONNECTED || currentWSState == WSC::State::WS_ERROR)
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Disconnected");
-    else if (currentWSState == WSC::State::CONNECTED)
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
-
-    ImGui::SameLine(ImGui::GetWindowWidth() - 80);
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-}
-
-void GUI::renderMainWindow() {
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
-    WSC::State currentWSState =
-        m_websocket ? m_websocket->getCurrentState() : WSC::State::UNINITIALIZED;
-
-    ImGui::Spacing();
-    ImGui::Text("Host:");
-    ImGui::InputTextWithHint("##Host", m_windowConfig.defaultHostHint.c_str(), &m_hostInput);
-    ImGui::SameLine();
-
-    if (currentWSState == WSC::State::CONNECTED) {
-        if (ImGui::Button("Disconnect")) {
-            try {
-                m_websocket->disconnect();
-            } catch (...) {
-                WSCLog(error, "Failed to disconnect websocket");
-            }
-        }
-    } else {
-        if (ImGui::Button("Connect")) {
-            WSCLog(info, "Connect Button Pressed");
-            try {
-                WSC::Config config;
-                WSCLog(debug, "Setting up websocket configuration");
-                // m_allMessages->clear();
-                if (m_websocket == nullptr) {
-                    WSCLog(debug, "Connecting to " + m_hostInput);
-                    m_websocket = std::make_unique<WSC>(m_hostInput, config);
-                    m_allMessages = std::make_unique<MessageQueue>();
-                    m_websocket->setDataMessageCallback([this](WSCMessage message) {
-                        message.type = WSCMessageType::RECEIVED;
-                        if (m_allMessages != nullptr) {
-                            WSCLog(debug, "Received message: " + message.getPayload());
-                            m_allMessages->push(message, true);
-                        }
-                    });
-                    m_websocket->setStateChangeCallback([this](const std::string &state) {
-                        std::string stateMessage = "State changed to " + state;
-                        if (m_allMessages != nullptr) {
-                            WSCLog(debug, "State changed to " + state);
-                            m_allMessages->push(
-                                WSCMessage{WSCMessageType::RECEIVED,
-                                           std::vector<unsigned char>(stateMessage.begin(),
-                                                                      stateMessage.end())},
-                                true);
-                        }
-                    });
-                }
-                if (!m_websocket->connect()) {
-                    WSCLog(error, "Failed to connect to " + m_hostInput);
-                }
-            } catch (const std::exception &e) {
-                WSCLog(error, "Failed to connect to " + m_hostInput + ": " + e.what());
-            }
-        }
-    }
-
-    ImGui::Dummy(ImVec2(0.0f, 5.0f));
-    ImGui::BeginDisabled(m_websocket == nullptr ||
-                         m_websocket->getCurrentState() != WSC::State::CONNECTED);
-    ImGui::Text("Messages:");
-    ImGui::BeginChild("Messages", ImVec2(0, m_windowConfig.height - 250.0f), true);
-    if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
-        auto messages = m_allMessages->getVector();
-        for (const auto &message : messages) {
-            std::string inputId = "m_messages";
-            inputId.append(std::to_string(message.timestamp.time_since_epoch().count()));
-            std::string input = (message.type == WSCMessageType::SENT ? "⬆ [" : "⬇ [") +
-                                message.getFormattedTimestamp() + "] " + message.getPayload();
-            int lineCount = (int)std::count(input.begin(), input.end(), '\n') + 1;
-            char *buffer = (char *)malloc(input.size() + 1);
-            strcpy(buffer, input.c_str());
-
-            ImGui::PushID(inputId.c_str());
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Text, message.type == WSCMessageType::SENT
-                                                     ? IM_COL32(255, 229, 163, 255)
-                                                     : IM_COL32(255, 255, 255, 255));
-            ImGui::InputTextMultiline(
-                "", buffer, input.size() + 1,
-                ImVec2(-FLT_MIN, (ImGui::GetTextLineHeight() * lineCount) + 7),
-                ImGuiInputTextFlags_ReadOnly);
-            ImGui::PopStyleColor();
-            ImGui::PopStyleColor();
-            ImGui::PopID();
-            free(buffer);
-        }
-        ImGui::SetScrollHereY(1.0f);
-    }
-    ImGui::EndChild();
-
-    static bool focusOnInput = false;
-    if (focusOnInput) {
-        ImGui::SetKeyboardFocusHere();
-        focusOnInput = false;
-    }
-    bool send = ImGui::InputTextMultiline(
-        "##Send", &m_sendMessageInput,
-        ImVec2(ImGui::GetWindowWidth() - 100, ImGui::GetTextLineHeight() * 5),
-        ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::SameLine();
-    if (ImGui::Button("Send") || send) {
-        WSCLog(info, "Send Button Pressed");
-        if (m_sendMessageInput.length() > 0) {
-            if (m_websocket && m_websocket->getCurrentState() == WSC::State::CONNECTED) {
-                if (!m_websocket->sendText(m_sendMessageInput)) {
-                    WSCLog(error, "Failed to send message");
-                }
-                m_allMessages->push(
-                    WSCMessage{WSCMessageType::SENT,
-                               std::vector<unsigned char>(m_sendMessageInput.begin(),
-                                                          m_sendMessageInput.end())},
-                    true);
-                m_sendMessageInput.clear();
-            }
-        }
-        focusOnInput = true;
-    }
-    ImGui::EndDisabled();
 }

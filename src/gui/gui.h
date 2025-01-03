@@ -20,8 +20,17 @@
 #include "ui/ui.h"
 #include "ws.h"
 
-class WSC;
+struct websocketConnection {
+    std::unique_ptr<WSC> ws;
+    std::unique_ptr<MessageQueue> messages;
+    std::string hostInput;
+    std::string sendMsgInput;
+    bool showTimeStamp = false;
+    bool showPingPong = false;
+    bool autoScroll = false;
+};
 
+class WSC;
 class GUI {
    public:
     struct Config {
@@ -68,6 +77,7 @@ class GUI {
     // Member variables
     Config m_windowConfig;
     std::unique_ptr<GLFWwindow, WindowDeleter> m_window;
+    std::unordered_map<std::string,std::shared_ptr<websocketConnection>> m_websockets;
     std::unique_ptr<WSC> m_websocket;
     std::unique_ptr<MessageQueue> m_allMessages;
     std::string m_hostInput;
@@ -89,8 +99,9 @@ class GUI {
     bool initImGui();
 
     void titleBar();
+    void tabBar();
 
-    // ImGui rendering methods
-    void renderMainWindow();
-    void renderStatusBar();
+    // Screens 
+    void connectionScreen(std::shared_ptr<websocketConnection> websocket);
+
 };

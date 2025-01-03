@@ -75,7 +75,8 @@ namespace WSCpp::UI::Layout {
         ImGuiWindowFlags baseWindowFlags =
             ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
+            ImGuiWindowFlags_NoScrollWithMouse;
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->Pos);
         ImGui::SetNextWindowSize(viewport->Size);
@@ -98,7 +99,8 @@ namespace WSCpp::UI::Layout {
         ImGui::End();
     }
 
-    void DrawBorder(ImRect rect, float thickness, float rounding, float offsetX, float offsetY) {
+    void DrawBorder(ImRect rect, float thickness, float rounding, float offsetX, float offsetY,
+                    ImU32 color, ImU32 bgColor) {
         auto min = rect.Min;
         min.x -= thickness;
         min.y -= thickness;
@@ -111,9 +113,8 @@ namespace WSCpp::UI::Layout {
         max.y += offsetY;
 
         auto* drawList = ImGui::GetWindowDrawList();
-        drawList->AddRect(
-            min, max, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_Border)),
-            rounding, 0, thickness);
+        drawList->AddRect(min, max, color, rounding, 0, thickness);
+        drawList->AddRectFilled(rect.Min, rect.Max, bgColor, rounding);
     }
 
     void DrawIcon(const GLuint texture, float buttonWidth, float buttonHeight, float iconWidth,

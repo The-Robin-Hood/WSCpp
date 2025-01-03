@@ -1,8 +1,9 @@
+file(GLOB SCREENS_SOURCES src/gui/screens/*.cpp)
 file(GLOB UI_SOURCES src/gui/ui/*.cpp)
 file(GLOB IMG_SOURCES thirdparty/imgui/*.cpp)
 set(WSCPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(WS_SOURCES src/websocket/ws.cpp)
-set(GUI_SOURCES src/gui/gui.cpp ${UI_SOURCES} ${IMG_SOURCES})
+set(GUI_SOURCES src/gui/gui.cpp ${SCREENS_SOURCES} ${UI_SOURCES} ${IMG_SOURCES})
 
 set(COMMON_INCLUDES
     thirdparty/spdlog/include

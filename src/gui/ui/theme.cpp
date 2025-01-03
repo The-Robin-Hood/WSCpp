@@ -17,5 +17,14 @@ namespace WSCpp::UI::Theme {
             ImGui::ColorConvertU32ToFloat4(UI::Colors::menubarHeaderColor);
         colors[ImGuiCol_ModalWindowDimBg] =
             ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::backgroundColor, 75));
+
+        colors[ImGuiCol_ButtonHovered] =
+            ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::primaryColor, 0));
+        colors[ImGuiCol_TabHovered] =
+            ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::primaryColor, 25));
+        colors[ImGuiCol_Tab] =
+            ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::primaryColor, 0));
+        colors[ImGuiCol_TabSelected] =
+            ImGui::ColorConvertU32ToFloat4(adjustTransparency(UI::Colors::primaryColor, 25));
     }
 }  // namespace WSCpp::UI::Theme

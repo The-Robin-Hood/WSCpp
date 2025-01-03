@@ -97,6 +97,10 @@ void WSC::wsCommandLoop() {
             } else if (command.command == "ping") {
                 if (m_state == State::CONNECTED) {
                     sendFrame(nullptr, 0, WSCMessageType::PING);
+                    if (m_controlMessageCallback) {
+                        m_controlMessageCallback(WSCMessage{
+                            WSCMessageType::SENT, std::vector<uint8_t>({'P', 'I', 'N', 'G'})});
+                    }
                     WSCLog(debug, "PING sent");
                 }
             } else if (command.command == "error") {
@@ -176,7 +180,7 @@ bool WSC::handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_
             std::string payload = "PING " + std::string(buffer.begin(), buffer.end());
             if (m_controlMessageCallback) {
                 m_controlMessageCallback(WSCMessage{
-                    WSCMessageType::PING, std::vector<uint8_t>(payload.begin(), payload.end())});
+                    WSCMessageType::RECEIVED, std::vector<uint8_t>(payload.begin(), payload.end())});
             }
             if (m_config.autoPong) {
                 sendFrame(buffer.begin(), length, WSCMessageType::PONG);
@@ -190,7 +194,7 @@ bool WSC::handleControlFrame(int opcode, const Poco::Buffer<char> &buffer, size_
             std::string payload = "PONG " + std::string(buffer.begin(), buffer.end());
             if (m_controlMessageCallback) {
                 m_controlMessageCallback(WSCMessage{
-                    WSCMessageType::PONG, std::vector<uint8_t>(payload.begin(), payload.end())});
+                    WSCMessageType::RECEIVED, std::vector<uint8_t>(payload.begin(), payload.end())});
             }
             m_pongNotReceivedCount = 0;
             return true;
@@ -345,7 +349,12 @@ void WSC::pingLoop() {
     while (m_pingThreadRunning) {
         std::unique_lock<std::mutex> lock(m_pingMutex);
         if (m_state == State::CONNECTED) {
+            // not pushing in command queue to avoid blocking
             sendFrame(nullptr, 0, WSCMessageType::PING);
+            if (m_controlMessageCallback) {
+                m_controlMessageCallback(
+                    WSCMessage{WSCMessageType::SENT, std::vector<uint8_t>({'P', 'I', 'N', 'G'})});
+            }
             if (m_pongNotReceivedCount > m_config.pongThreshold) {
                 m_commandQueue->push(Command{
                     "error",

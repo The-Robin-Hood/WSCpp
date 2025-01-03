@@ -1,4 +1,5 @@
 #include "ui.h"
+#include "imgui_stdlib.h"
 
 namespace WSCpp::UI::Component {
     bool Button(const ButtonProps& props) {
@@ -65,24 +66,44 @@ namespace WSCpp::UI::Component {
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, props.frameBorderSize);
         ImGui::PushStyleColor(ImGuiCol_FrameBg, Colors::transparentColor);
 
+        if (props.labelVisibility) {
+            if (props.labelSameline) {
+                // padding for the label
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 7);
+                ImGui::Text("%s", props.label);
+                ImGui::SameLine();
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 7);
+            } else {
+                ImGui::Text("%s", props.label);
+            }
+        }
+
         ImGui::BeginDisabled(props.disabled);
         ImGui::SetNextItemWidth(props.size.x);
         std::string hideLabel = "##" + std::string(props.label);
         std::replace(hideLabel.begin(), hideLabel.end(), ' ', '_');
         if (props.multiline && props.size.y > 0.0f) {
             ImGui::InputTextMultiline(
-                hideLabel.c_str(), &props.inputText[0], props.inputText.capacity() + 1,
+                hideLabel.c_str(), &props.inputText,
                 ImVec2(props.size.x, (props.size.y != 0 ? ((ImGui::GetTextLineHeight() * 5) + 7)
                                                         : props.size.y)),
                 props.flags);
         } else {
-            ImGui::InputTextWithHint(hideLabel.c_str(), props.hint, &props.inputText[0],
-                                     props.inputText.capacity() + 1, props.flags);
+            ImGui::InputTextWithHint(hideLabel.c_str(), props.hint, &props.inputText, props.flags);
         }
 
         ImGui::PopStyleVar(3);
         ImGui::PopStyleColor();
         ImGui::EndDisabled();
+    }
+
+    void CheckBox(const char* label, bool* value){
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, adjustTransparency(Colors::secondaryColor, 50));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, Colors::secondaryColor);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, Colors::secondaryColor);
+        ImGui::PushStyleColor(ImGuiCol_CheckMark, Colors::primaryColor);
+        ImGui::Checkbox(label, value);
+        ImGui::PopStyleColor(4);
     }
 
     void AlertDialog(const AlertDialogProps& props) {

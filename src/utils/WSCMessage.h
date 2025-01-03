@@ -46,4 +46,20 @@ struct WSCMessage {
         ss << std::put_time(localTime, "%Y-%m-%d %H:%M:%S");
         return ss.str();
     }
+    std::string messageTypeString() const {
+        switch (type) {
+            case WSCMessageType::SENT:
+                return "SENT";
+            case WSCMessageType::RECEIVED:
+                return "RECEIVED";
+            case WSCMessageType::PING:
+                return "PING";
+            case WSCMessageType::PONG:
+                return "PONG";
+            case WSCMessageType::CLOSE:
+                return "CLOSE";
+            default:
+                return "UNKNOWN";
+        }
+    }
 };
