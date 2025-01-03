@@ -35,7 +35,7 @@ namespace WSCpp {
             void endMenubar();
 
             void DrawBorder(ImRect rect, float thickness, float rounding, float offsetX,
-                            float offsetY);
+                            float offsetY, ImU32 color, ImU32 bgColor);
 
             void DrawIcon(const GLuint texture, float buttonWidth, float buttonHeight,
                           float iconWidth, float iconHeight);
@@ -122,6 +122,8 @@ namespace WSCpp {
             };
             struct InputProps {
                 const char* label;
+                bool labelVisibility = false;
+                int labelSameline = 0;  // 0: left, 1: top
                 const char* hint = "";
                 std::string& inputText;
                 ImVec2 size = ImVec2(200.0f, 100.0f);
@@ -145,8 +147,10 @@ namespace WSCpp {
                 std::function<void()> onCancel = nullptr;
             };
 
+            void showDemoUIComponents();
             bool Button(const ButtonProps& props);
             void Input(const InputProps& props);
+            void CheckBox(const char* label, bool* value);
             void AlertDialog(const AlertDialogProps& props);
         }  // namespace Component
 
